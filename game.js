@@ -5159,40 +5159,6 @@ function createEnemyCurveAttackEffect(enemy) {
     animateCurveEffect();
 }
 
-function createEnemyAttackEffect(enemy) {
-    let effectGeometry, effectMaterial;
-    
-    switch (enemy.hitboxType) {
-        case 'precise':
-            // Small precise attack effect
-            effectGeometry = new THREE.RingGeometry(0.3, 0.8, 8);
-            effectMaterial = new THREE.MeshBasicMaterial({ 
-                color: 0xff3333, 
-                transparent: true, 
-                opacity: 0.6 
-            });
-            break;
-            
-        case 'circle':
-            // Larger area attack effect
-            effectGeometry = new THREE.RingGeometry(enemy.damageRadius * 0.5, enemy.damageRadius, 12);
-            effectMaterial = new THREE.MeshBasicMaterial({ 
-                color: 0xff6666, 
-                transparent: true, 
-                opacity: 0.4 
-            });
-            break;
-    }
-    
-    const effect = new THREE.Mesh(effectGeometry, effectMaterial);
-    effect.position.copy(enemy.position);
-    effect.position.y = 0.1;
-    effect.rotation.x = -Math.PI / 2;
-    
-    scene.add(effect);
-    animateEffect(effect, 1.5);
-}
-
 function checkPortalCollision() {
     if (!player || !window.portals) return;
     
