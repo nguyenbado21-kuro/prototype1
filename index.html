@@ -10,7 +10,7 @@
             padding: 0;
             overflow: hidden;
             background: #000;
-            font-family: Arial, sans-serif;
+            font-family: 'Arial', sans-serif;
         }
         
         #gameContainer {
@@ -19,12 +19,517 @@
             height: 100vh;
         }
         
+        /* Introduction Cutscene Styles */
+        #introScene {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            color: white;
+            text-align: center;
+        }
+        
+        #cutsceneContainer {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+        
+        #videoPlaceholder {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            width: 80%;
+            max-width: 800px;
+        }
+        
+        #introVideo {
+            width: 100%;
+            max-width: 1200px;
+            height: auto;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        
+        #cutsceneText {
+            font-size: 1.5em;
+            line-height: 1.6;
+            margin-top: 30px;
+            color: #e0e0e0;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+        }
+        
+        #cutsceneControls {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 30px;
+            display: flex;
+            justify-content: flex-end;
+        }
+        
+        #introTitle {
+            font-size: 4em;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            background: linear-gradient(45deg, #ff6b6b, #ffd93d, #6bcf7f, #4ecdc4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: titleGlow 3s ease-in-out infinite alternate;
+        }
+        
+        @keyframes titleGlow {
+            from { filter: drop-shadow(0 0 10px rgba(255, 107, 107, 0.5)); }
+            to { filter: drop-shadow(0 0 20px rgba(255, 107, 107, 0.8)); }
+        }
+        
+        #introSubtitle {
+            font-size: 1.5em;
+            margin-bottom: 30px;
+            color: #cccccc;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+        }
+        
+        #introStory {
+            max-width: 800px;
+            font-size: 1.2em;
+            line-height: 1.6;
+            margin-bottom: 40px;
+            color: #e0e0e0;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.6);
+        }
+        
+        #introSkip {
+            padding: 12px 25px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            color: white;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            font-size: 1.1em;
+            backdrop-filter: blur(10px);
+        }
+        
+        #introSkip:hover {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.8);
+            transform: translateY(-2px);
+        }
+        
+        /* Main Menu Styles */
+        #mainMenu {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 50%, #2c3e50 100%);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 999;
+            color: white;
+        }
+        
+        #menuTitle {
+            font-size: 3.5em;
+            font-weight: bold;
+            margin-bottom: 50px;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.8);
+            color: #ecf0f1;
+        }
+        
+        .menu-button {
+            padding: 15px 40px;
+            margin: 10px;
+            font-size: 1.3em;
+            background: linear-gradient(45deg, #3498db, #2980b9);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+            min-width: 200px;
+        }
+        
+        .menu-button:hover {
+            background: linear-gradient(45deg, #2980b9, #3498db);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(52, 152, 219, 0.5);
+        }
+        
+        .menu-button:active {
+            transform: translateY(0);
+        }
+        
+        #playButton {
+            background: linear-gradient(45deg, #e74c3c, #c0392b);
+            box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3);
+        }
+        
+        #playButton:hover {
+            background: linear-gradient(45deg, #c0392b, #e74c3c);
+            box-shadow: 0 6px 20px rgba(231, 76, 60, 0.5);
+        }
+        
+        /* Settings Menu Styles */
+        #settingsMenu {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #34495e 0%, #2c3e50 50%, #34495e 100%);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 998;
+            color: white;
+        }
+        
+        .settings-section {
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        .settings-label {
+            font-size: 1.2em;
+            margin-bottom: 10px;
+        }
+        
+        .settings-control {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+        }
+        
+        .volume-slider {
+            width: 200px;
+            height: 5px;
+            background: #7f8c8d;
+            border-radius: 5px;
+            outline: none;
+        }
+        
+        /* Death Scene Styles */
+        #deathScene {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a0000 50%, #000000 100%);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1001;
+            color: #ff4444;
+            overflow: hidden;
+            opacity: 0;
+            transition: opacity 2s ease-in-out;
+        }
+        
+        #deathScene.death-scene-visible {
+            opacity: 1;
+        }
+        
+        #deathBackground {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(circle at 50% 60%, rgba(255, 0, 0, 0.3) 0%, transparent 50%),
+                linear-gradient(0deg, rgba(0, 0, 0, 0.8) 0%, transparent 100%);
+            animation: deathPulse 3s ease-in-out infinite alternate;
+        }
+        
+        @keyframes deathPulse {
+            from { opacity: 0.7; }
+            to { opacity: 1.0; }
+        }
+        
+        .death-skull {
+            position: absolute;
+            top: 20px;
+            width: 120px;
+            height: 80px;
+            background: linear-gradient(45deg, #444, #666, #444);
+            border-radius: 50% 50% 40% 40%;
+            z-index: 1002;
+        }
+        
+        .death-skull::before {
+            content: '';
+            position: absolute;
+            top: 20px;
+            left: 25px;
+            width: 15px;
+            height: 20px;
+            background: #000;
+            border-radius: 50%;
+            box-shadow: 45px 0 0 #000;
+        }
+        
+        .death-skull::after {
+            content: '';
+            position: absolute;
+            top: 45px;
+            left: 45px;
+            width: 30px;
+            height: 20px;
+            background: #000;
+            border-radius: 0 0 50% 50%;
+        }
+        
+        .death-skull-left {
+            left: 50px;
+            transform: rotate(-15deg);
+        }
+        
+        .death-skull-right {
+            right: 50px;
+            transform: rotate(15deg);
+        }
+        
+        #deathMessage {
+            text-align: center;
+            z-index: 1003;
+            margin-bottom: 50px;
+        }
+        
+        #deathTitle {
+            font-size: 4em;
+            font-weight: bold;
+            letter-spacing: 8px;
+            text-shadow: 
+                0 0 10px #ff0000,
+                0 0 20px #ff0000,
+                0 0 30px #ff0000,
+                3px 3px 0px #000000;
+            margin-bottom: 20px;
+            animation: deathTitleGlow 2s ease-in-out infinite alternate;
+        }
+        
+        @keyframes deathTitleGlow {
+            from { 
+                text-shadow: 
+                    0 0 10px #ff0000,
+                    0 0 20px #ff0000,
+                    0 0 30px #ff0000,
+                    3px 3px 0px #000000;
+            }
+            to { 
+                text-shadow: 
+                    0 0 15px #ff4444,
+                    0 0 25px #ff4444,
+                    0 0 35px #ff4444,
+                    3px 3px 0px #000000;
+            }
+        }
+        
+        #deathSubtitle {
+            font-size: 1.5em;
+            color: #cc3333;
+            text-shadow: 2px 2px 4px #000000;
+            font-style: italic;
+        }
+        
+        #deathCharacter {
+            position: absolute;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            height: 300px;
+            background: linear-gradient(180deg, 
+                rgba(255, 0, 0, 0.8) 0%, 
+                rgba(150, 0, 0, 0.6) 50%, 
+                rgba(100, 0, 0, 0.4) 100%);
+            clip-path: polygon(
+                50% 0%, 
+                60% 35%, 
+                90% 35%, 
+                75% 55%, 
+                85% 90%, 
+                50% 75%, 
+                15% 90%, 
+                25% 55%, 
+                10% 35%, 
+                40% 35%
+            );
+            animation: deathCharacterFloat 4s ease-in-out infinite;
+            z-index: 1002;
+        }
+        
+        @keyframes deathCharacterFloat {
+            0%, 100% { transform: translateX(-50%) translateY(0px); }
+            50% { transform: translateX(-50%) translateY(-20px); }
+        }
+        
+        #deathOptions {
+            position: absolute;
+            bottom: 50px;
+            display: flex;
+            gap: 30px;
+            z-index: 1003;
+        }
+        
+        .death-button {
+            padding: 15px 30px;
+            font-size: 1.2em;
+            background: linear-gradient(45deg, #660000, #440000);
+            border: 2px solid #ff4444;
+            border-radius: 8px;
+            color: #ff4444;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-shadow: 1px 1px 2px #000000;
+            min-width: 150px;
+        }
+        
+        .death-button:hover {
+            background: linear-gradient(45deg, #880000, #660000);
+            border-color: #ff6666;
+            color: #ff6666;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255, 68, 68, 0.3);
+        }
+        
+        .death-button:active {
+            transform: translateY(0);
+        }
+        
+        /* Game UI Styles */
+        #deathOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0);
+            z-index: 500;
+            pointer-events: none;
+            transition: background 3s ease-in-out;
+        }
+        
+        #deathOverlay.death-fade {
+            background: rgba(0, 0, 0, 1);
+        }
+        
         #ui {
             position: absolute;
-            top: 10px;
-            left: 10px;
+            top: 20px;
+            left: 20px;
             color: white;
             z-index: 100;
+            display: none;
+            font-family: 'Arial', sans-serif;
+        }
+        
+        /* Modern Stat Bars */
+        .stat-bar-container {
+            margin-bottom: 15px;
+        }
+        
+        .stat-bar {
+            position: relative;
+            width: 300px;
+            height: 35px;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 
+                0 2px 10px rgba(0, 0, 0, 0.5),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+        
+        .stat-bar-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(180deg, 
+                rgba(40, 40, 40, 0.9) 0%, 
+                rgba(20, 20, 20, 0.9) 100%);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+        }
+        
+        .stat-bar-fill {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            height: calc(100% - 4px);
+            border-radius: 6px;
+            transition: width 0.3s ease-out;
+            box-shadow: 
+                inset 0 1px 0 rgba(255, 255, 255, 0.3),
+                inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+        }
+        
+        .health-fill {
+            background: linear-gradient(180deg, 
+                #ff6b6b 0%, 
+                #ee5a52 50%, 
+                #dc3545 100%);
+            width: 100%;
+        }
+        
+        .stamina-fill {
+            background: linear-gradient(180deg, 
+                #4ecdc4 0%, 
+                #45b7aa 50%, 
+                #3ba99c 100%);
+            width: 0%;
+        }
+        
+        .stat-bar-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 16px;
+            font-weight: bold;
+            color: white;
+            text-shadow: 
+                1px 1px 2px rgba(0, 0, 0, 0.8),
+                0 0 4px rgba(0, 0, 0, 0.5);
+            z-index: 10;
+            pointer-events: none;
+        }
+        
+        /* Additional UI Info */
+        .ui-info {
+            margin-top: 20px;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        
+        .ui-info div {
+            margin-bottom: 5px;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
         }
         
         #instructions {
@@ -34,23 +539,158 @@
             color: white;
             z-index: 100;
             font-size: 14px;
+            display: none;
+        }
+        
+        #immortalSelect {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: white;
+            display: none;
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        .fade-in {
+            animation: fadeIn 1s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
     </style>
 </head>
 <body>
+    <!-- Introduction Cutscene -->
+    <div id="introScene">
+        <div id="cutsceneContainer">
+            <!-- Video will be added here later -->
+            <div id="videoPlaceholder">
+                <h1 id="introTitle">The Four Immortals</h1>
+                <h2 id="introSubtitle">Against the Northern Monster</h2>
+                <div id="cutsceneText">
+                    <p>[ Cutscene Video Will Play Here ]</p>
+                    <p>Prepare for an epic adventure...</p>
+                </div>
+            </div>
+            
+            <!-- Video element (ready for cutscene video) -->
+            <video id="introVideo" style="display: none;" controls>
+                <!-- TO ADD VIDEO LATER: Uncomment and update the source path -->
+                <!-- <source src="assets/video/intro-cutscene.mp4" type="video/mp4"> -->
+                <!-- <source src="assets/video/intro-cutscene.webm" type="video/webm"> -->
+                Your browser does not support the video tag.
+            </video>
+        </div>
+        
+        <div id="cutsceneControls">
+            <div id="introSkip">Skip Cutscene</div>
+        </div>
+    </div>
+    
+    <!-- Main Menu -->
+    <div id="mainMenu">
+        <h1 id="menuTitle">The Four Immortals</h1>
+        <button id="playButton" class="menu-button">Play Game</button>
+        <button id="settingsButton" class="menu-button">Settings</button>
+        <button id="quitButton" class="menu-button">Quit Game</button>
+    </div>
+    
+    <!-- Settings Menu -->
+    <div id="settingsMenu">
+        <h2 style="margin-bottom: 40px; font-size: 2.5em;">Settings</h2>
+        
+        <div class="settings-section">
+            <div class="settings-label">Master Volume</div>
+            <div class="settings-control">
+                <span>0%</span>
+                <input type="range" id="volumeSlider" class="volume-slider" min="0" max="100" value="30">
+                <span>100%</span>
+            </div>
+        </div>
+        
+        <div class="settings-section">
+            <div class="settings-label">Audio</div>
+            <div class="settings-control">
+                <button id="muteButton" class="menu-button" style="min-width: 150px;">Unmuted</button>
+            </div>
+        </div>
+        
+        <div class="settings-section" style="margin-top: 40px;">
+            <button id="backToMenuButton" class="menu-button">Back to Menu</button>
+        </div>
+    </div>
+    
+    <!-- Death Scene -->
+    <div id="deathScene">
+        <div id="deathBackground"></div>
+        
+        <!-- Decorative skull borders -->
+        <div class="death-skull death-skull-left"></div>
+        <div class="death-skull death-skull-right"></div>
+        
+        <!-- Death message -->
+        <div id="deathMessage">
+            <div id="deathTitle">THERE IS NO ESCAPE</div>
+            <div id="deathSubtitle">The Northern Monster has claimed another immortal...</div>
+        </div>
+        
+        <!-- Death character silhouette -->
+        <div id="deathCharacter"></div>
+        
+        <!-- Death options -->
+        <div id="deathOptions">
+            <button id="respawnButton" class="death-button">Respawn</button>
+            <button id="returnToMenuButton" class="death-button">Return to Menu</button>
+        </div>
+    </div>
+
     <div id="gameContainer">
+        <!-- Dark overlay for death transition -->
+        <div id="deathOverlay"></div>
+        
         <div id="ui">
-            <div>Health: <span id="health">100</span></div>
-            <div>Immortal: <span id="currentImmortal">Flame</span></div>
-            <div>Ability: <span id="abilityStatus">Ready</span></div>
-            <div>Audio: <span id="audioStatus">Click to enable</span></div>
+            <!-- Modern Health Bar -->
+            <div class="stat-bar-container">
+                <div class="stat-bar health-bar">
+                    <div class="stat-bar-background"></div>
+                    <div class="stat-bar-fill health-fill" id="healthFill"></div>
+                    <div class="stat-bar-text">
+                        <span id="healthValue">100</span>/<span id="maxHealthValue">100</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Modern Stamina Bar -->
+            <div class="stat-bar-container">
+                <div class="stat-bar stamina-bar">
+                    <div class="stat-bar-background"></div>
+                    <div class="stat-bar-fill stamina-fill" id="staminaFill"></div>
+                    <div class="stat-bar-text">
+                        <span id="staminaValue">0</span>/<span id="maxStaminaValue">50</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Additional UI Info -->
+            <div class="ui-info">
+                <div>Immortal: <span id="currentImmortal">Flame</span></div>
+                <div>Ability: <span id="abilityStatus">Ready</span></div>
+                <div>Charges: <span id="staminaCharges">0</span>/5</div>
+                <div>Mini Boss: <span id="miniBossProgress">0</span>/65 kills</div>
+                <div>Level: <span id="currentLevel">1</span>/<span id="maxLevel">5</span></div>
+            </div>
         </div>
         <div id="instructions">
             WASD: Move | Left Click: Attack | Right Click: Special Ability<br>
             1-4: Switch Immortals | Space: Dodge Roll | Mouse Wheel: Zoom Camera<br>
             H: Return Home | M: Mute/Unmute | +/-: Volume Control
         </div>
-        <div id="immortalSelect" style="position: absolute; top: 10px; right: 10px; color: white;">
+        <div id="immortalSelect">
             <div>Select Immortal:</div>
             <div>1 - Flame (Melee/Fire)</div>
             <div>2 - Storm (Ranged/Lightning)</div>

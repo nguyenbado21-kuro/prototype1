@@ -12,6 +12,36 @@ let dodgeCooldown = 0;
 let currentImmortal = 'flame';
 let isDodging = false;
 
+// Game state management
+let gameState = 'intro'; // 'intro', 'menu', 'playing', 'settings'
+let gameInitialized = false;
+
+// Stamina system
+let stamina = 0; // Current stamina (0-50)
+let maxStamina = 50; // Max stamina (50 enemy kills)
+let enemyKillCount = 0; // Track enemy kills
+let staminaCharges = 0; // Available skill charges (0-5)
+let maxStaminaCharges = 5; // Max charges when stamina is full
+let isStaminaMode = false; // Whether player is in stamina mode (can spam skills)
+
+// Stamina decay system
+let lastEnemyHitTime = 0; // Timestamp of last enemy hit
+let staminaDecayDelay = 11000; // 11 seconds before stamina starts decaying
+let staminaDecayRate = 1000; // Decay 1 stamina point every 1000ms (1 second)
+let lastStaminaDecayTime = 0; // Timestamp of last stamina decay
+
+// Mini boss system
+let normalEnemyKills = 0; // Track normal enemy kills for mini boss spawning
+let miniBossSpawnThreshold = 65; // Spawn mini boss after 65 normal enemy kills
+let miniBossActive = false; // Whether a mini boss is currently active
+let miniBoss = null; // Reference to current mini boss
+
+// Level progression system
+let currentLevel = 1; // Current level/stage
+let maxLevel = 5; // Maximum levels available
+let nextLevelPortal = null; // Portal to next level
+let levelScenes = {}; // Store different level scenes
+
 // Dimension system
 let currentDimension = 'home'; // 'home' or 'war'
 let homeScene, warScene;
@@ -29,7 +59,7 @@ const immortals = {
         name: 'Flame',
         color: 0xff4444,
         attackRange: 4,
-        attackDamage: 35,
+        attackDamage: 40,
         attackCooldown: 400,
         abilityCooldown: 2000,
         speed: 0.12,
@@ -37,24 +67,24 @@ const immortals = {
         hitboxType: 'curve', // Curved flame attack
         hitboxRange: 4,      // How far the attack reaches
         hitboxWidth: 90,     // Curve angle in degrees
-        damageRadius: 3,     // Width of the damage area
-        curveIntensity: 0.8, // How curved the attack is (0-1)
+        damageRadius: 5,     // Width of the damage area
+        curveIntensity: 1, // How curved the attack is (0-1)
         areaEffect: true     // Has area damage effect
     },
     storm: {
         name: 'Storm',
         color: 0x4444ff,
         attackRange: 8,
-        attackDamage: 20,
+        attackDamage: 10,
         attackCooldown: 300,
         abilityCooldown: 3000,
         speed: 0.15,
         // Hitbox properties - Lightning chain
         hitboxType: 'chain', // Chain lightning attack
         hitboxRange: 8,      // Long range
-        hitboxWidth: 2,      // Chain width
-        damageRadius: 1.5,   // Splash around each hit
-        maxChains: 3         // Maximum chain targets
+        hitboxWidth: 0.5,      // Chain width
+        damageRadius: 1,   // Splash around each hit
+        maxChains: 3         // Maximum chain targetss
     },
     earth: {
         name: 'Earth',
@@ -93,8 +123,337 @@ const immortals = {
 const DODGE_DISTANCE = 3;
 const DODGE_DURATION = 300;
 
-// Initialize the game
-function init() {
+// Menu and intro system
+function initializeMenuSystem() {
+    console.log("Initializing menu system...");
+    
+    // Show intro scene first
+    showIntroScene();
+    
+    // Set up intro event listeners
+    document.getElementById('introSkip').addEventListener('click', skipIntro);
+    
+    // Set up main menu event listeners
+    document.getElementById('playButton').addEventListener('click', startGame);
+    document.getElementById('settingsButton').addEventListener('click', showSettings);
+    document.getElementById('quitButton').addEventListener('click', quitGame);
+    
+    // Set up settings menu event listeners
+    document.getElementById('backToMenuButton').addEventListener('click', showMainMenu);
+    document.getElementById('volumeSlider').addEventListener('input', updateVolume);
+    document.getElementById('muteButton').addEventListener('click', toggleMute);
+    
+    // Set up death scene event listeners
+    document.getElementById('respawnButton').addEventListener('click', respawnPlayer);
+    document.getElementById('returnToMenuButton').addEventListener('click', returnToMenuFromDeath);
+    
+    // Auto-skip cutscene after 30 seconds if no video or if video is too long
+    setTimeout(() => {
+        if (gameState === 'intro') {
+            const introVideo = document.getElementById('introVideo');
+            // Only auto-skip if no video is playing or if video is longer than 30 seconds
+            if (!introVideo || introVideo.paused || introVideo.currentTime === 0) {
+                skipIntro();
+            }
+        }
+    }, 30000); // 30 seconds for cutscene
+}
+
+function showIntroScene() {
+    gameState = 'intro';
+    document.getElementById('introScene').style.display = 'flex';
+    document.getElementById('mainMenu').style.display = 'none';
+    document.getElementById('settingsMenu').style.display = 'none';
+    hideGameUI();
+    
+    // Check if video is available and play it
+    const introVideo = document.getElementById('introVideo');
+    if (introVideo && introVideo.querySelector('source')) {
+        playIntroCutscene();
+    } else {
+        // Show placeholder until video is added
+        document.getElementById('videoPlaceholder').style.display = 'flex';
+        document.getElementById('introVideo').style.display = 'none';
+    }
+    
+    console.log("Showing intro cutscene");
+}
+
+function playIntroCutscene() {
+    const introVideo = document.getElementById('introVideo');
+    const videoPlaceholder = document.getElementById('videoPlaceholder');
+    
+    if (introVideo && introVideo.querySelector('source')) {
+        // Hide placeholder and show video
+        videoPlaceholder.style.display = 'none';
+        introVideo.style.display = 'block';
+        
+        // Play the video
+        introVideo.play().then(() => {
+            console.log("Intro cutscene video started");
+        }).catch(error => {
+            console.warn("Could not play intro video:", error);
+            // Fallback to placeholder
+            videoPlaceholder.style.display = 'flex';
+            introVideo.style.display = 'none';
+        });
+        
+        // Auto-skip to menu when video ends
+        introVideo.addEventListener('ended', () => {
+            console.log("Intro cutscene ended");
+            skipIntro();
+        });
+        
+        // Update skip button text
+        document.getElementById('introSkip').textContent = 'Skip Cutscene';
+    }
+}
+
+function skipIntro() {
+    // Stop video if playing
+    const introVideo = document.getElementById('introVideo');
+    if (introVideo && !introVideo.paused) {
+        introVideo.pause();
+        introVideo.currentTime = 0;
+    }
+    
+    gameState = 'menu';
+    document.getElementById('introScene').style.display = 'none';
+    showMainMenu();
+    
+    console.log("Skipped intro cutscene, showing main menu");
+}
+
+// Function to add video source (call this when video file is ready)
+function setIntroCutsceneVideo(videoPath) {
+    const introVideo = document.getElementById('introVideo');
+    const source = document.createElement('source');
+    source.src = videoPath;
+    source.type = 'video/mp4';
+    
+    // Clear existing sources
+    introVideo.innerHTML = '';
+    introVideo.appendChild(source);
+    
+    // Add fallback text
+    introVideo.appendChild(document.createTextNode('Your browser does not support the video tag.'));
+    
+    console.log(`Intro cutscene video set to: ${videoPath}`);
+    
+    // If we're currently showing the intro, switch to video
+    if (gameState === 'intro') {
+        playIntroCutscene();
+    }
+}
+
+function showMainMenu() {
+    gameState = 'menu';
+    document.getElementById('introScene').style.display = 'none';
+    document.getElementById('mainMenu').style.display = 'flex';
+    document.getElementById('settingsMenu').style.display = 'none';
+    hideGameUI();
+    
+    console.log("Showing main menu");
+}
+
+function showSettings() {
+    gameState = 'settings';
+    document.getElementById('mainMenu').style.display = 'none';
+    document.getElementById('settingsMenu').style.display = 'flex';
+    
+    // Update settings UI with current values
+    const volumeSlider = document.getElementById('volumeSlider');
+    volumeSlider.value = Math.round(musicVolume * 100);
+    
+    const muteButton = document.getElementById('muteButton');
+    muteButton.textContent = currentMusic && !currentMusic.muted ? 'Unmuted' : 'Muted';
+    
+    console.log("Showing settings menu");
+}
+
+function startGame() {
+    gameState = 'playing';
+    document.getElementById('introScene').style.display = 'none';
+    document.getElementById('mainMenu').style.display = 'none';
+    document.getElementById('settingsMenu').style.display = 'none';
+    showGameUI();
+    
+    // Initialize game if not already done
+    if (!gameInitialized) {
+        initializeGame();
+        gameInitialized = true;
+    }
+    
+    console.log("Starting game...");
+}
+
+function quitGame() {
+    // In a web browser, we can't actually quit, so show a message
+    if (confirm("Are you sure you want to quit? This will close the game.")) {
+        window.close(); // This may not work in all browsers due to security
+        // Fallback: redirect to a blank page or show a quit message
+        document.body.innerHTML = '<div style="display: flex; justify-content: center; align-items: center; height: 100vh; font-size: 2em; color: white; background: #2c3e50;">Thank you for playing The Four Immortals!</div>';
+    }
+}
+
+function hideGameUI() {
+    document.getElementById('ui').style.display = 'none';
+    document.getElementById('instructions').style.display = 'none';
+    document.getElementById('immortalSelect').style.display = 'none';
+}
+
+function showGameUI() {
+    document.getElementById('ui').style.display = 'block';
+    document.getElementById('instructions').style.display = 'block';
+    document.getElementById('immortalSelect').style.display = 'block';
+}
+
+function updateVolume() {
+    const volumeSlider = document.getElementById('volumeSlider');
+    const newVolume = volumeSlider.value / 100;
+    setMusicVolume(newVolume);
+    
+    console.log(`Volume updated to ${Math.round(newVolume * 100)}%`);
+}
+
+function toggleMute() {
+    const muteButton = document.getElementById('muteButton');
+    
+    if (currentMusic) {
+        currentMusic.muted = !currentMusic.muted;
+        muteButton.textContent = currentMusic.muted ? 'Muted' : 'Unmuted';
+        
+        console.log(`Audio ${currentMusic.muted ? 'muted' : 'unmuted'}`);
+    }
+}
+
+function showDeathScene() {
+    gameState = 'death';
+    
+    // Hide other UI elements
+    document.getElementById('introScene').style.display = 'none';
+    document.getElementById('mainMenu').style.display = 'none';
+    document.getElementById('settingsMenu').style.display = 'none';
+    hideGameUI();
+    
+    // Show death scene (initially invisible)
+    const deathScene = document.getElementById('deathScene');
+    deathScene.style.display = 'flex';
+    
+    // Fade in the death scene after a brief delay
+    setTimeout(() => {
+        deathScene.classList.add('death-scene-visible');
+    }, 500); // Small delay before fade-in starts
+    
+    console.log("Death scene fading in...");
+}
+
+function hideDeathScene() {
+    const deathScene = document.getElementById('deathScene');
+    const deathOverlay = document.getElementById('deathOverlay');
+    
+    // Fade out death scene
+    deathScene.classList.remove('death-scene-visible');
+    
+    // After fade out, hide the scene and reset overlay
+    setTimeout(() => {
+        deathScene.style.display = 'none';
+        deathOverlay.classList.remove('death-fade');
+    }, 1000); // Wait for fade out to complete
+}
+
+function respawnPlayer() {
+    console.log("Player respawning...");
+    hideDeathScene();
+    
+    // Reset player state
+    health = 100;
+    updateHealthBar();
+    
+    // Reset level progression
+    currentLevel = 1;
+    normalEnemyKills = 0;
+    stamina = 0;
+    staminaCharges = 0;
+    isStaminaMode = false;
+    miniBossSpawnThreshold = 65;
+    
+    // Add brief invincibility after respawn
+    if (player) {
+        player.userData.invincible = true;
+        player.userData.invincibilityTime = 3000;
+    }
+    
+    // Return to home dimension
+    currentDimension = 'home';
+    scene = homeScene;
+    
+    // Remove player from current scene and add to home
+    if (player && player.parent) {
+        player.parent.remove(player);
+    }
+    if (player) {
+        homeScene.add(player);
+        player.position.set(0, 0.5, 0); // Reset to spawn position
+    }
+    
+    // Clear all enemies and bosses
+    enemies.forEach(enemy => {
+        if (enemy.parent) enemy.parent.remove(enemy);
+    });
+    enemies = [];
+    
+    if (miniBoss && miniBoss.parent) {
+        miniBoss.parent.remove(miniBoss);
+    }
+    miniBoss = null;
+    miniBossActive = false;
+    
+    // Clean up progression portals
+    if (window.progressionPortals) {
+        window.progressionPortals.forEach(portal => {
+            if (portal.ring && portal.ring.parent) {
+                portal.ring.parent.remove(portal.ring);
+            }
+            if (portal.center && portal.center.parent) {
+                portal.center.parent.remove(portal.center);
+            }
+        });
+        window.progressionPortals = [];
+    }
+    
+    // Switch to peaceful home music
+    playMusic('home');
+    
+    // Update all UI elements
+    updateStaminaUI();
+    updateMiniBossUI();
+    updateLevelUI();
+    
+    // Resume game
+    gameState = 'playing';
+    showGameUI();
+    
+    console.log("Player respawned in home dimension with full reset");
+}
+
+function returnToMenuFromDeath() {
+    console.log("Returning to main menu from death scene");
+    hideDeathScene();
+    showMainMenu();
+}
+
+// Initialize the menu system when page loads
+function initializeApp() {
+    console.log("Initializing application...");
+    initializeMenuSystem();
+    
+    // Start the animation loop (but game logic only runs when playing)
+    animate();
+}
+
+// Rename the old init function to initializeGame
+function initializeGame() {
     console.log("Initializing game...");
     
     // Create camera first (shared between dimensions)
@@ -149,7 +508,20 @@ function init() {
     console.log("Event listeners set up");
     
     // Start game loop
-    animate();
+    // animate(); // Removed - now called from initializeApp
+    
+    // Initialize stamina UI
+    updateStaminaUI();
+    
+    // Initialize mini boss UI
+    updateMiniBossUI();
+    
+    // Initialize level UI
+    updateLevelUI();
+    
+    // Initialize stamina decay timing
+    lastEnemyHitTime = Date.now();
+    lastStaminaDecayTime = Date.now();
     
     console.log("Game loop started");
 }
@@ -435,43 +807,70 @@ function createWarDimension() {
 }
 
 function createHomeWalls() {
-    const wallHeight = 4; // Lower walls for home
-    const wallThickness = 0.5;
+    const wallHeight = 6; // Taller walls for better visibility
+    const wallThickness = 1; // Thicker walls
     const worldSize = 50;
     
-    // Peaceful wall material - light stone
+    // Enhanced peaceful wall material - light stone with better visibility
     const homeWallMaterial = new THREE.MeshBasicMaterial({ 
-        color: 0xD2B48C, // Tan color
+        color: 0xE6D3A3, // Lighter tan/beige color for better visibility
         transparent: false
     });
     
-    // Create decorative walls (not full barriers)
-    const wallSegments = [
-        // North wall segments (with gaps)
-        { pos: [-30, wallHeight / 2, worldSize], size: [30, wallHeight, wallThickness] },
-        { pos: [30, wallHeight / 2, worldSize], size: [30, wallHeight, wallThickness] },
-        
-        // South wall segments
-        { pos: [-30, wallHeight / 2, -worldSize], size: [30, wallHeight, wallThickness] },
-        { pos: [30, wallHeight / 2, -worldSize], size: [30, wallHeight, wallThickness] },
-        
-        // East wall segments
-        { pos: [worldSize, wallHeight / 2, -30], size: [wallThickness, wallHeight, 30] },
-        { pos: [worldSize, wallHeight / 2, 30], size: [wallThickness, wallHeight, 30] },
-        
-        // West wall segments
-        { pos: [-worldSize, wallHeight / 2, -30], size: [wallThickness, wallHeight, 30] },
-        { pos: [-worldSize, wallHeight / 2, 30], size: [wallThickness, wallHeight, 30] }
+    // Create complete solid walls (no gaps)
+    const walls = [
+        // North wall (complete)
+        { pos: [0, wallHeight / 2, worldSize + wallThickness / 2], size: [100 + wallThickness * 2, wallHeight, wallThickness] },
+        // South wall (complete)
+        { pos: [0, wallHeight / 2, -worldSize - wallThickness / 2], size: [100 + wallThickness * 2, wallHeight, wallThickness] },
+        // East wall (complete)
+        { pos: [worldSize + wallThickness / 2, wallHeight / 2, 0], size: [wallThickness, wallHeight, 100] },
+        // West wall (complete)
+        { pos: [-worldSize - wallThickness / 2, wallHeight / 2, 0], size: [wallThickness, wallHeight, 100] }
     ];
     
-    wallSegments.forEach(segment => {
-        const wallGeometry = new THREE.BoxGeometry(...segment.size);
+    walls.forEach(wallData => {
+        const wallGeometry = new THREE.BoxGeometry(...wallData.size);
         const wall = new THREE.Mesh(wallGeometry, homeWallMaterial);
-        wall.position.set(...segment.pos);
+        wall.position.set(...wallData.pos);
         wall.castShadow = true;
         wall.receiveShadow = true;
         homeScene.add(wall);
     });
+    
+    // Add decorative corner pillars for better visual appeal
+    const pillarHeight = wallHeight + 2;
+    const pillarSize = 2;
+    const pillarMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0xD2B48C, // Slightly darker for contrast
+        transparent: false
+    });
+    
+    const cornerPositions = [
+        [-worldSize - 1, pillarHeight / 2, -worldSize - 1], // Southwest
+        [worldSize + 1, pillarHeight / 2, -worldSize - 1],  // Southeast
+        [-worldSize - 1, pillarHeight / 2, worldSize + 1],  // Northwest
+        [worldSize + 1, pillarHeight / 2, worldSize + 1]    // Northeast
+    ];
+    
+    cornerPositions.forEach(pos => {
+        const pillarGeometry = new THREE.BoxGeometry(pillarSize, pillarHeight, pillarSize);
+        const pillar = new THREE.Mesh(pillarGeometry, pillarMaterial);
+        pillar.position.set(...pos);
+        pillar.castShadow = true;
+        pillar.receiveShadow = true;
+        homeScene.add(pillar);
+    });
+    
+    // Store wall boundaries for collision detection in home dimension
+    window.homeBounds = {
+        minX: -worldSize,
+        maxX: worldSize,
+        minZ: -worldSize,
+        maxZ: worldSize
+    };
+    
+    console.log("Complete home walls created with collision boundaries:", window.homeBounds);
 }
 
 function createWarWalls() {
@@ -608,6 +1007,18 @@ function switchToDimension(dimension) {
             if (enemy.parent) enemy.parent.remove(enemy);
         });
         enemies = [];
+        
+        // Clear mini boss if active
+        if (miniBoss && miniBoss.parent) {
+            miniBoss.parent.remove(miniBoss);
+        }
+        miniBoss = null;
+        miniBossActive = false;
+        
+        // Reset progression states
+        normalEnemyKills = 0;
+        
+        console.log("All enemies and bosses despawned - home is peaceful");
         
         // Switch to peaceful home music
         playMusic('home');
@@ -1083,6 +1494,21 @@ function setupEventListeners() {
         initializeAudioOnInteraction();
         
         keys[event.code] = true;
+        
+        // Test commands for debugging
+        if (event.code === 'KeyT' && event.ctrlKey) {
+            // Test stamina decay - add some stamina and reset timer
+            stamina = Math.min(maxStamina, stamina + 10);
+            lastEnemyHitTime = Date.now() - 12000; // Set last hit to 12 seconds ago
+            updateStaminaUI();
+            console.log(`🧪 Test: Added stamina (${stamina}) and set last hit to 12s ago`);
+        }
+        
+        if (event.code === 'KeyR' && event.ctrlKey) {
+            // Reset stamina decay timer
+            lastEnemyHitTime = Date.now();
+            console.log(`🔄 Test: Reset stamina decay timer`);
+        }
     });
     
     document.addEventListener('keyup', (event) => {
@@ -1233,7 +1659,7 @@ function handleMovement() {
     // Calculate new position
     const newPosition = player.position.clone().add(moveVector);
     
-    // Check wall collision - only in war dimension
+    // Check wall collision - both dimensions now have walls
     if (currentDimension === 'war' && window.worldBounds) {
         const playerRadius = 0.5; // Half the player cube size for collision buffer
         
@@ -1245,6 +1671,18 @@ function handleMovement() {
         newPosition.z = Math.max(
             window.worldBounds.minZ + playerRadius,
             Math.min(window.worldBounds.maxZ - playerRadius, newPosition.z)
+        );
+    } else if (currentDimension === 'home' && window.homeBounds) {
+        const playerRadius = 0.5; // Half the player cube size for collision buffer
+        
+        // Clamp position to home boundaries
+        newPosition.x = Math.max(
+            window.homeBounds.minX + playerRadius,
+            Math.min(window.homeBounds.maxX - playerRadius, newPosition.x)
+        );
+        newPosition.z = Math.max(
+            window.homeBounds.minZ + playerRadius,
+            Math.min(window.homeBounds.maxZ - playerRadius, newPosition.z)
         );
     }
     
@@ -1482,6 +1920,9 @@ function attack() {
             // Damage enemy
             enemy.health -= damage;
             
+            // Record enemy hit for stamina decay system
+            recordEnemyHit();
+            
             // Apply immortal-specific effects
             applyAttackEffects(enemy);
             
@@ -1496,14 +1937,11 @@ function attack() {
             
             // Remove enemy if dead
             if (enemy.health <= 0) {
-                scene.remove(enemy);
-                enemies.splice(index, 1);
+                handleEnemyDeath(enemy, index);
                 console.log("Enemy defeated!");
                 
-                // Spawn new enemy to maintain challenge
-                if (enemies.length < 3) {
-                    spawnNewEnemy();
-                }
+                // Skip to next enemy since current one was removed
+                return;
             }
         }
     });
@@ -1569,12 +2007,24 @@ function switchImmortal(type) {
 }
 
 function useSpecialAbility() {
-    if (abilityCooldown > 0) return;
+    // Check if we can use stamina charge (no cooldown)
+    const canUseStaminaCharge = useStaminaCharge();
+    
+    if (!canUseStaminaCharge && abilityCooldown > 0) {
+        console.log("Ability on cooldown and no stamina charges available");
+        return;
+    }
     
     const immortal = immortals[currentImmortal];
-    abilityCooldown = immortal.abilityCooldown;
     
-    document.getElementById('abilityStatus').textContent = 'Cooling Down';
+    // Only apply cooldown if not using stamina charge
+    if (!canUseStaminaCharge) {
+        abilityCooldown = immortal.abilityCooldown;
+        document.getElementById('abilityStatus').textContent = 'Cooling Down';
+    } else {
+        console.log("🔥 Using stamina charge - no cooldown! 🔥");
+        document.getElementById('abilityStatus').textContent = 'STAMINA MODE!';
+    }
     
     switch(currentImmortal) {
         case 'flame':
@@ -1593,37 +2043,187 @@ function useSpecialAbility() {
 }
 
 function flameAbility() {
-    console.log("Flame Burst!");
+    console.log("🔥 Flame Circle Burst! 🔥");
     
-    // Flame ability creates area damage around the player, not at mouse position
+    // Flame ability creates perfect circle damage around the player
     const skillRange = immortals[currentImmortal].attackRange * 1.5; // Skills have longer range
+    const abilityDamage = immortals[currentImmortal].attackDamage; // Same damage as melee attack
     
-    // Check enemies within skill range from player
+    console.log(`Flame circle: ${abilityDamage} damage in ${skillRange} unit radius`);
+    
+    let hitCount = 0;
+    
+    // Check enemies within perfect circle range from player
     enemies.forEach((enemy, index) => {
-        const distance = enemy.position.distanceTo(player.position);
-        if (distance <= skillRange) { // Hit enemies within skill range from player
-            enemy.health -= 50;
+        const distance = player.position.distanceTo(enemy.position);
+        if (distance <= skillRange) { // Perfect circle damage
+            enemy.health -= abilityDamage;
+            hitCount++;
+            
+            // Record enemy hit for stamina decay system
+            recordEnemyHit();
+            
+            // Create individual flame burst at each enemy
+            createFlameHitEffect(enemy.position);
+            
+            console.log(`🔥 Flame circle hit enemy ${hitCount} at distance ${distance.toFixed(2)} for ${abilityDamage} damage`);
+            
             if (enemy.health <= 0) {
-                scene.remove(enemy);
-                enemies.splice(index, 1);
+                handleEnemyDeath(enemy, index);
             }
         }
     });
     
-    // Create large fire effect around the player
-    const effectGeometry = new THREE.RingGeometry(skillRange * 0.5, skillRange, 16);
-    const effectMaterial = new THREE.MeshBasicMaterial({ 
+    // Create expanding circle fire effect around the player
+    createFlameCircleEffect(skillRange);
+    
+    console.log(`🔥 Flame circle burst hit ${hitCount} enemies in ${skillRange} unit radius`);
+}
+
+function createFlameCircleEffect(radius) {
+    // Create main expanding fire circle
+    const circleGeometry = new THREE.CircleGeometry(radius, 32);
+    const circleMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0xff4400, 
+        transparent: true, 
+        opacity: 0.6,
+        side: THREE.DoubleSide
+    });
+    
+    const fireCircle = new THREE.Mesh(circleGeometry, circleMaterial);
+    fireCircle.position.copy(player.position);
+    fireCircle.position.y = 0.05;
+    fireCircle.rotation.x = -Math.PI / 2;
+    
+    scene.add(fireCircle);
+    
+    // Create ring border for better visibility
+    const ringGeometry = new THREE.RingGeometry(radius - 0.2, radius, 32);
+    const ringMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0xff6600, 
+        transparent: true, 
+        opacity: 0.9,
+        side: THREE.DoubleSide
+    });
+    
+    const fireRing = new THREE.Mesh(ringGeometry, ringMaterial);
+    fireRing.position.copy(player.position);
+    fireRing.position.y = 0.1;
+    fireRing.rotation.x = -Math.PI / 2;
+    
+    scene.add(fireRing);
+    
+    // Create flame particles around the circle
+    for (let i = 0; i < 16; i++) {
+        const angle = (i / 16) * Math.PI * 2;
+        const particlePos = player.position.clone();
+        particlePos.x += Math.cos(angle) * radius;
+        particlePos.z += Math.sin(angle) * radius;
+        
+        createFlameParticle(particlePos);
+    }
+    
+    // Animate the circle effect
+    let effectTime = 0;
+    const animateCircle = () => {
+        effectTime += 16;
+        const progress = effectTime / 1000; // 1 second effect
+        
+        // Animate main circle
+        const scale = 1 + progress * 0.5;
+        fireCircle.scale.set(scale, scale, 1);
+        fireCircle.material.opacity = Math.max(0, 0.6 - progress * 0.6);
+        fireCircle.rotation.z += 0.02;
+        
+        // Animate ring
+        fireRing.scale.set(scale, scale, 1);
+        fireRing.material.opacity = Math.max(0, 0.9 - progress * 0.9);
+        fireRing.rotation.z -= 0.03;
+        
+        if (progress < 1) {
+            requestAnimationFrame(animateCircle);
+        } else {
+            if (fireCircle.parent) scene.remove(fireCircle);
+            if (fireRing.parent) scene.remove(fireRing);
+        }
+    };
+    
+    animateCircle();
+}
+
+function createFlameHitEffect(position) {
+    // Create flame burst at enemy hit location
+    const burstGeometry = new THREE.SphereGeometry(0.5, 8, 8);
+    const burstMaterial = new THREE.MeshBasicMaterial({ 
         color: 0xff3300, 
         transparent: true, 
-        opacity: 0.8 
+        opacity: 1.0
     });
-    const effect = new THREE.Mesh(effectGeometry, effectMaterial);
-    effect.position.copy(player.position);
-    effect.position.y = 0.1;
-    effect.rotation.x = -Math.PI / 2;
-    scene.add(effect);
     
-    animateEffect(effect, 2);
+    const flameBurst = new THREE.Mesh(burstGeometry, burstMaterial);
+    flameBurst.position.copy(position);
+    flameBurst.position.y = 0.5;
+    
+    scene.add(flameBurst);
+    
+    // Animate flame burst
+    let burstTime = 0;
+    const animateBurst = () => {
+        burstTime += 16;
+        const progress = burstTime / 400; // 400ms effect
+        
+        // Scale and fade
+        const scale = 1 + progress * 2;
+        flameBurst.scale.set(scale, scale, scale);
+        flameBurst.material.opacity = Math.max(0, 1 - progress);
+        
+        if (progress < 1) {
+            requestAnimationFrame(animateBurst);
+        } else {
+            if (flameBurst.parent) scene.remove(flameBurst);
+        }
+    };
+    
+    animateBurst();
+}
+
+function createFlameParticle(position) {
+    // Create small flame particle
+    const particleGeometry = new THREE.SphereGeometry(0.2, 6, 6);
+    const particleMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0xff6600, 
+        transparent: true, 
+        opacity: 0.8
+    });
+    
+    const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+    particle.position.copy(position);
+    particle.position.y = 0.2;
+    
+    scene.add(particle);
+    
+    // Animate particle
+    let particleTime = 0;
+    const animateParticle = () => {
+        particleTime += 16;
+        const progress = particleTime / 600; // 600ms effect
+        
+        // Move upward and fade
+        particle.position.y += 0.02;
+        particle.material.opacity = Math.max(0, 0.8 - progress * 0.8);
+        
+        // Slight random movement
+        particle.position.x += (Math.random() - 0.5) * 0.01;
+        particle.position.z += (Math.random() - 0.5) * 0.01;
+        
+        if (progress < 1) {
+            requestAnimationFrame(animateParticle);
+        } else {
+            if (particle.parent) scene.remove(particle);
+        }
+    };
+    
+    animateParticle();
 }
 
 function stormAbility() {
@@ -1652,6 +2252,9 @@ function stormAbility() {
     if (targetEnemy && minDistance <= 3) { // Tighter targeting range
         targetEnemy.health -= 80;
         
+        // Record enemy hit for stamina decay system
+        recordEnemyHit();
+        
         // Create lightning effect at target
         const lightningGeometry = new THREE.CylinderGeometry(0.1, 0.1, 10);
         const lightningMaterial = new THREE.MeshBasicMaterial({ color: 0x00ffff });
@@ -1665,8 +2268,9 @@ function stormAbility() {
         
         if (targetEnemy.health <= 0) {
             const index = enemies.indexOf(targetEnemy);
-            scene.remove(targetEnemy);
-            enemies.splice(index, 1);
+            if (index !== -1) {
+                handleEnemyDeath(targetEnemy, index);
+            }
         }
     } else {
         // Create lightning at mouse position even if no enemy
@@ -1683,36 +2287,57 @@ function stormAbility() {
 function earthAbility() {
     console.log("Stone Shield!");
     // Temporary invincibility and knockback
-    isDodging = true;
+    player.userData.invincible = true;
+    player.userData.invincibilityTime = 2000; // 2 seconds of invincibility
     
-    // Create shield effect
-    const shieldGeometry = new THREE.SphereGeometry(2, 8, 6);
-    const shieldMaterial = new THREE.MeshBasicMaterial({ 
-        color: 0x8b4513, 
-        transparent: true, 
-        opacity: 0.3,
-        wireframe: true
-    });
-    const shield = new THREE.Mesh(shieldGeometry, shieldMaterial);
-    shield.position.copy(player.position);
-    scene.add(shield);
+    // Find nearest enemy for targeted knockback
+    let nearestEnemy = null;
+    let minDistance = Infinity;
     
-    // Knockback enemies
     enemies.forEach(enemy => {
-        const distance = player.position.distanceTo(enemy.position);
-        if (distance <= 4) {
-            const direction = new THREE.Vector3();
-            direction.subVectors(enemy.position, player.position);
-            direction.normalize();
-            direction.multiplyScalar(3);
-            enemy.position.add(direction);
+        const distance = enemy.position.distanceTo(player.position);
+        if (distance < minDistance) {
+            minDistance = distance;
+            nearestEnemy = enemy;
         }
     });
     
-    setTimeout(() => {
-        isDodging = false;
-        scene.remove(shield);
-    }, 3000);
+    if (nearestEnemy && minDistance <= 5) {
+        // Deal damage
+        nearestEnemy.health -= 100;
+        
+        // Record enemy hit for stamina decay system
+        recordEnemyHit();
+        
+        if (nearestEnemy.health <= 0) {
+            const index = enemies.indexOf(nearestEnemy);
+            if (index !== -1) {
+                handleEnemyDeath(nearestEnemy, index);
+            }
+        }
+        
+        // Knockback
+        const direction = new THREE.Vector3();
+        direction.subVectors(nearestEnemy.position, player.position);
+        direction.normalize();
+        direction.multiplyScalar(3);
+        nearestEnemy.position.add(direction);
+    }
+    
+    // Create shield effect around player
+    const shieldGeometry = new THREE.RingGeometry(2, 3, 16);
+    const shieldMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0x8b4513, 
+        transparent: true, 
+        opacity: 0.7 
+    });
+    const shield = new THREE.Mesh(shieldGeometry, shieldMaterial);
+    shield.position.copy(player.position);
+    shield.position.y = 0.1;
+    shield.rotation.x = -Math.PI / 2;
+    scene.add(shield);
+    
+    animateEffect(shield, 1.5);
 }
 
 function shadowAbility() {
@@ -1737,10 +2362,14 @@ function shadowAbility() {
         // Deal damage
         nearestEnemy.health -= 100;
         
+        // Record enemy hit for stamina decay system
+        recordEnemyHit();
+        
         if (nearestEnemy.health <= 0) {
             const index = enemies.indexOf(nearestEnemy);
-            scene.remove(nearestEnemy);
-            enemies.splice(index, 1);
+            if (index !== -1) {
+                handleEnemyDeath(nearestEnemy, index);
+            }
         }
         
         // Create shadow effect
@@ -1801,7 +2430,7 @@ function dodgeRoll() {
     const startPos = player.position.clone();
     let endPos = startPos.clone().add(moveVector);
     
-    // Check wall collision for dodge destination - only in war dimension
+    // Check wall collision for dodge destination - both dimensions
     if (currentDimension === 'war' && window.worldBounds) {
         const playerRadius = 0.5;
         
@@ -1813,6 +2442,18 @@ function dodgeRoll() {
         endPos.z = Math.max(
             window.worldBounds.minZ + playerRadius,
             Math.min(window.worldBounds.maxZ - playerRadius, endPos.z)
+        );
+    } else if (currentDimension === 'home' && window.homeBounds) {
+        const playerRadius = 0.5;
+        
+        // Clamp dodge destination to home boundaries
+        endPos.x = Math.max(
+            window.homeBounds.minX + playerRadius,
+            Math.min(window.homeBounds.maxX - playerRadius, endPos.x)
+        );
+        endPos.z = Math.max(
+            window.homeBounds.minZ + playerRadius,
+            Math.min(window.homeBounds.maxZ - playerRadius, endPos.z)
         );
     }
     
@@ -2033,6 +2674,826 @@ function createDashLandingEffect(position) {
     animateLanding();
 }
 
+function handleEnemyDeath(enemy, index) {
+    // Remove enemy from scene and array
+    scene.remove(enemy);
+    enemies.splice(index, 1);
+    
+    // Check if this was a mini boss
+    if (enemy.isMiniBoss) {
+        console.log("🏆 MINI BOSS DEFEATED! 🏆");
+        miniBossActive = false;
+        miniBoss = null;
+        
+        // Mini boss gives extra stamina
+        addStamina(5); // 5 stamina for mini boss kill
+        
+        // Create special victory effect
+        createMiniBossDeathEffect(enemy.position);
+        
+        // Reset mini boss progress
+        normalEnemyKills = 0;
+        updateMiniBossUI();
+        
+        // Create progression portal to next level
+        createProgressionPortal(enemy.position);
+        
+    } else {
+        // Normal enemy death
+        normalEnemyKills++;
+        addStamina(1);
+        
+        console.log(`Enemy defeated! Normal kills: ${normalEnemyKills}/${miniBossSpawnThreshold}`);
+        
+        // Check if we should spawn a mini boss
+        if (normalEnemyKills >= miniBossSpawnThreshold && !miniBossActive) {
+            spawnMiniBoss();
+        } else {
+            // Spawn new normal enemy to maintain challenge
+            if (enemies.length < 3) {
+                spawnNewEnemy();
+            }
+        }
+    }
+    
+    updateMiniBossUI();
+}
+
+function addStamina(amount) {
+    stamina = Math.min(maxStamina, stamina + amount);
+    enemyKillCount += amount;
+    
+    // Update UI
+    updateStaminaUI();
+    
+    // Check if stamina is full
+    if (stamina >= maxStamina && !isStaminaMode) {
+        activateStaminaMode();
+    }
+}
+
+function activateStaminaMode() {
+    isStaminaMode = true;
+    staminaCharges = maxStaminaCharges;
+    
+    console.log("🔥 STAMINA MODE ACTIVATED! 🔥");
+    console.log(`You can now use ${maxStaminaCharges} skills without cooldown!`);
+    
+    // Update UI
+    updateStaminaUI();
+    
+    // Create visual effect for stamina activation
+    createStaminaActivationEffect();
+    
+    // Add screen effect
+    if (cameraSystem) {
+        cameraSystem.shake(0.8, 600);
+    }
+}
+
+function useStaminaCharge() {
+    if (isStaminaMode && staminaCharges > 0) {
+        staminaCharges--;
+        updateStaminaUI();
+        
+        console.log(`Stamina charge used! Remaining: ${staminaCharges}`);
+        
+        // Check if stamina mode should end
+        if (staminaCharges <= 0) {
+            deactivateStaminaMode();
+        }
+        
+        return true; // Skill can be used without cooldown
+    }
+    return false; // Normal cooldown applies
+}
+
+function deactivateStaminaMode() {
+    isStaminaMode = false;
+    staminaCharges = 0;
+    stamina = 0; // Reset stamina after using all charges
+    
+    console.log("Stamina mode ended. Stamina reset to 0.");
+    
+    // Update UI
+    updateStaminaUI();
+    
+    // Create deactivation effect
+    createStaminaDeactivationEffect();
+}
+
+function updateHealthBar() {
+    const healthValue = document.getElementById('healthValue');
+    const healthFill = document.getElementById('healthFill');
+    const maxHealth = 100;
+    
+    if (healthValue && healthFill) {
+        healthValue.textContent = Math.max(0, Math.floor(health));
+        
+        // Calculate percentage and update bar width
+        const healthPercentage = Math.max(0, (health / maxHealth) * 100);
+        healthFill.style.width = healthPercentage + '%';
+        
+        // Change color based on health level
+        if (healthPercentage > 60) {
+            healthFill.style.background = 'linear-gradient(180deg, #ff6b6b 0%, #ee5a52 50%, #dc3545 100%)';
+        } else if (healthPercentage > 30) {
+            healthFill.style.background = 'linear-gradient(180deg, #ffa500 0%, #ff8c00 50%, #ff7f00 100%)';
+        } else {
+            healthFill.style.background = 'linear-gradient(180deg, #ff4444 0%, #cc0000 50%, #990000 100%)';
+        }
+    }
+}
+
+function updateStaminaBar() {
+    const staminaValue = document.getElementById('staminaValue');
+    const staminaFill = document.getElementById('staminaFill');
+    const maxStaminaElement = document.getElementById('maxStaminaValue');
+    
+    if (staminaValue && staminaFill && maxStaminaElement) {
+        staminaValue.textContent = stamina;
+        maxStaminaElement.textContent = maxStamina;
+        
+        // Calculate percentage and update bar width
+        const staminaPercentage = Math.max(0, (stamina / maxStamina) * 100);
+        staminaFill.style.width = staminaPercentage + '%';
+        
+        // Change color based on stamina mode
+        if (isStaminaMode) {
+            staminaFill.style.background = 'linear-gradient(180deg, #ffd700 0%, #ffb347 50%, #ff8c00 100%)';
+        } else {
+            staminaFill.style.background = 'linear-gradient(180deg, #4ecdc4 0%, #45b7aa 50%, #3ba99c 100%)';
+        }
+    }
+}
+
+function updateStaminaUI() {
+    // Update the modern stamina bar
+    updateStaminaBar();
+    
+    // Update stamina charges display
+    const staminaChargesElement = document.getElementById('staminaCharges');
+    if (staminaChargesElement) {
+        staminaChargesElement.textContent = staminaCharges;
+        
+        // Change color based on stamina mode
+        if (isStaminaMode) {
+            staminaChargesElement.style.color = '#ffff00'; // Yellow when active
+            staminaChargesElement.style.fontWeight = 'bold';
+        } else {
+            staminaChargesElement.style.color = '#ffffff'; // White when inactive
+            staminaChargesElement.style.fontWeight = 'normal';
+        }
+    }
+}
+    const staminaElement = document.getElementById('stamina');
+    const maxStaminaElement = document.getElementById('maxStamina');
+    const staminaChargesElement = document.getElementById('staminaCharges');
+    
+    if (staminaElement) staminaElement.textContent = stamina;
+    if (maxStaminaElement) maxStaminaElement.textContent = maxStamina;
+    if (staminaChargesElement) {
+        staminaChargesElement.textContent = staminaCharges;
+        
+        // Change color based on stamina mode
+        if (isStaminaMode) {
+            staminaChargesElement.style.color = '#ffff00'; // Yellow when active
+            staminaChargesElement.style.fontWeight = 'bold';
+        } else {
+            staminaChargesElement.style.color = '#ffffff'; // White when inactive
+            staminaChargesElement.style.fontWeight = 'normal';
+        }
+    }
+
+function createStaminaActivationEffect() {
+    if (!player) return;
+    
+    // Create golden energy explosion
+    const effectGeometry = new THREE.RingGeometry(0.5, 4, 24);
+    const effectMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0xffd700, // Gold color
+        transparent: true, 
+        opacity: 0.9,
+        side: THREE.DoubleSide
+    });
+    
+    const staminaEffect = new THREE.Mesh(effectGeometry, effectMaterial);
+    staminaEffect.position.copy(player.position);
+    staminaEffect.position.y = 0.1;
+    staminaEffect.rotation.x = -Math.PI / 2;
+    
+    scene.add(staminaEffect);
+    
+    // Create energy particles
+    const particles = [];
+    for (let i = 0; i < 12; i++) {
+        const particleGeometry = new THREE.SphereGeometry(0.2, 6, 6);
+        const particleMaterial = new THREE.MeshBasicMaterial({ 
+            color: 0xffd700,
+            transparent: true, 
+            opacity: 0.8
+        });
+        
+        const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+        particle.position.copy(player.position);
+        
+        const angle = (i / 12) * Math.PI * 2;
+        particle.position.x += Math.cos(angle) * 2;
+        particle.position.z += Math.sin(angle) * 2;
+        particle.position.y = 0.5 + Math.random() * 1;
+        
+        scene.add(particle);
+        particles.push(particle);
+    }
+    
+    // Animate stamina activation effect
+    let effectTime = 0;
+    const animateStaminaEffect = () => {
+        effectTime += 16;
+        const progress = effectTime / 800; // 800ms effect
+        
+        // Animate main ring
+        staminaEffect.scale.set(1 + progress * 2, 1 + progress * 2, 1);
+        staminaEffect.material.opacity = Math.max(0, 0.9 - progress * 0.9);
+        staminaEffect.rotation.z += 0.1;
+        
+        // Animate particles
+        particles.forEach((particle, index) => {
+            particle.position.y += 0.03;
+            particle.material.opacity = Math.max(0, 0.8 - progress * 0.8);
+            particle.rotation.y += 0.1;
+        });
+        
+        if (progress < 1) {
+            requestAnimationFrame(animateStaminaEffect);
+        } else {
+            // Clean up effects
+            scene.remove(staminaEffect);
+            particles.forEach(particle => scene.remove(particle));
+        }
+    };
+    
+    animateStaminaEffect();
+}
+
+function createStaminaDeactivationEffect() {
+    if (!player) return;
+    
+    // Create fading energy effect
+    const effectGeometry = new THREE.RingGeometry(1, 2, 16);
+    const effectMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0x888888, // Gray color for deactivation
+        transparent: true, 
+        opacity: 0.6,
+        side: THREE.DoubleSide
+    });
+    
+    const fadeEffect = new THREE.Mesh(effectGeometry, effectMaterial);
+    fadeEffect.position.copy(player.position);
+    fadeEffect.position.y = 0.1;
+    fadeEffect.rotation.x = -Math.PI / 2;
+    
+    scene.add(fadeEffect);
+    
+    // Animate fade effect
+    let fadeTime = 0;
+    const animateFadeEffect = () => {
+        fadeTime += 16;
+        const progress = fadeTime / 400; // 400ms effect
+        
+        fadeEffect.scale.set(1 - progress * 0.5, 1 - progress * 0.5, 1);
+        fadeEffect.material.opacity = Math.max(0, 0.6 - progress * 0.6);
+        
+        if (progress < 1) {
+            requestAnimationFrame(animateFadeEffect);
+        } else {
+            scene.remove(fadeEffect);
+        }
+    };
+    
+    animateFadeEffect();
+}
+
+function spawnMiniBoss() {
+    if (miniBossActive) return; // Don't spawn if one already exists
+    
+    console.log("🔥 MINI BOSS SPAWNING! 🔥");
+    console.log("Clearing battlefield of all normal enemies...");
+    
+    // Clear all existing enemies before spawning mini boss
+    enemies.forEach(enemy => {
+        if (!enemy.isMiniBoss && enemy.parent) {
+            enemy.parent.remove(enemy);
+        }
+    });
+    enemies = []; // Clear the enemies array
+    
+    miniBossActive = true;
+    
+    // Create mini boss with larger model
+    const miniBossGeometry = new THREE.BoxGeometry(2, 2, 2); // 2x larger than normal enemies
+    const miniBossMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0xff0000, // Red color for mini boss
+        transparent: false
+    });
+    
+    miniBoss = new THREE.Mesh(miniBossGeometry, miniBossMaterial);
+    
+    // Spawn at a distance from player
+    const spawnAngle = Math.random() * Math.PI * 2;
+    const spawnDistance = 15;
+    const finalPosition = new THREE.Vector3(
+        Math.cos(spawnAngle) * spawnDistance,
+        1, // Higher Y position for bigger model
+        Math.sin(spawnAngle) * spawnDistance
+    );
+    
+    // Start underground for dramatic entrance
+    miniBoss.position.copy(finalPosition);
+    miniBoss.position.y = -3;
+    miniBoss.scale.set(0.1, 0.1, 0.1);
+    
+    miniBoss.castShadow = true;
+    
+    // Mini boss stats
+    miniBoss.health = 200; // Much more health than normal enemies
+    miniBoss.maxHealth = 200;
+    miniBoss.type = 'miniboss';
+    miniBoss.isMiniBoss = true;
+    miniBoss.speed = 0.02; // Slower but more dangerous
+    
+    // Mini boss attack properties
+    miniBoss.attackRange = 4.0; // Longer range
+    miniBoss.attackDamage = 40; // Higher damage
+    miniBoss.attackCooldown = 2000; // Slower attacks but more powerful
+    miniBoss.hitboxType = 'miniboss';
+    miniBoss.damageRadius = 3.0;
+    
+    // Mini boss skills
+    miniBoss.skill1Cooldown = 0;
+    miniBoss.skill2Cooldown = 0;
+    miniBoss.skill1Timer = 5000; // First skill every 5 seconds
+    miniBoss.skill2Timer = 8000; // Second skill every 8 seconds
+    miniBoss.lastSkill1Time = 0;
+    miniBoss.lastSkill2Time = 0;
+    
+    // Deploy state
+    miniBoss.isDeploying = true;
+    miniBoss.deployTime = 2000; // Longer deploy time for dramatic effect
+    
+    // Add to war scene
+    if (warScene) {
+        warScene.add(miniBoss);
+    } else {
+        scene.add(miniBoss);
+    }
+    enemies.push(miniBoss);
+    
+    // Create dramatic spawn effect
+    createMiniBossSpawnEffect(miniBoss, finalPosition);
+    
+    // Animate deployment
+    animateMiniBossDeploy(miniBoss, finalPosition);
+    
+    console.log("Mini Boss deployed with 200 HP and 2 special skills!");
+}
+
+function createMiniBossSpawnEffect(boss, position) {
+    // Create dramatic red energy explosion
+    const effectGeometry = new THREE.RingGeometry(1, 6, 24);
+    const effectMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0xff0000, // Red color
+        transparent: true, 
+        opacity: 0.8,
+        side: THREE.DoubleSide
+    });
+    
+    const spawnEffect = new THREE.Mesh(effectGeometry, effectMaterial);
+    spawnEffect.position.copy(position);
+    spawnEffect.position.y = 0.1;
+    spawnEffect.rotation.x = -Math.PI / 2;
+    
+    scene.add(spawnEffect);
+    
+    // Create fire particles
+    const particles = [];
+    for (let i = 0; i < 16; i++) {
+        const particleGeometry = new THREE.SphereGeometry(0.3, 6, 6);
+        const particleMaterial = new THREE.MeshBasicMaterial({ 
+            color: new THREE.Color().setHSL(0, 1, 0.5 + Math.random() * 0.3),
+            transparent: true, 
+            opacity: 0.9
+        });
+        
+        const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+        particle.position.copy(position);
+        
+        const angle = (i / 16) * Math.PI * 2;
+        particle.position.x += Math.cos(angle) * 3;
+        particle.position.z += Math.sin(angle) * 3;
+        particle.position.y = 0.5 + Math.random() * 2;
+        
+        scene.add(particle);
+        particles.push(particle);
+    }
+    
+    // Animate spawn effect
+    let effectTime = 0;
+    const animateSpawnEffect = () => {
+        effectTime += 16;
+        const progress = effectTime / 1200; // 1.2 second effect
+        
+        // Animate main ring
+        spawnEffect.scale.set(1 + progress * 3, 1 + progress * 3, 1);
+        spawnEffect.material.opacity = Math.max(0, 0.8 - progress * 0.8);
+        spawnEffect.rotation.z += 0.08;
+        
+        // Animate particles
+        particles.forEach((particle, index) => {
+            particle.position.y += 0.04;
+            particle.material.opacity = Math.max(0, 0.9 - progress * 0.9);
+            particle.rotation.y += 0.1;
+            particle.scale.multiplyScalar(1.02);
+        });
+        
+        if (progress < 1) {
+            requestAnimationFrame(animateSpawnEffect);
+        } else {
+            // Clean up effects
+            scene.remove(spawnEffect);
+            particles.forEach(particle => scene.remove(particle));
+        }
+    };
+    
+    animateSpawnEffect();
+}
+
+function animateMiniBossDeploy(boss, finalPosition) {
+    const startTime = Date.now();
+    const deployDuration = 2000; // 2 seconds
+    
+    const animateDeploy = () => {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / deployDuration, 1);
+        
+        // Dramatic ease-out animation
+        const easeProgress = 1 - Math.pow(1 - progress, 4);
+        
+        // Animate position (rise from underground)
+        boss.position.y = -3 + (finalPosition.y + 3) * easeProgress;
+        
+        // Animate scale (grow dramatically)
+        const scale = 0.1 + 0.9 * easeProgress;
+        boss.scale.set(scale, scale, scale);
+        
+        // Add rotation and screen shake
+        boss.rotation.y = (1 - progress) * Math.PI * 4;
+        
+        // Screen shake during deployment
+        if (cameraSystem && progress < 0.8) {
+            cameraSystem.shake(0.3, 50);
+        }
+        
+        if (progress < 1) {
+            requestAnimationFrame(animateDeploy);
+        } else {
+            // Deploy complete
+            boss.isDeploying = false;
+            boss.position.copy(finalPosition);
+            boss.scale.set(1, 1, 1);
+            boss.rotation.y = 0;
+            console.log("🔥 MINI BOSS READY FOR BATTLE! 🔥");
+        }
+    };
+    
+    animateDeploy();
+}
+
+function createMiniBossDeathEffect(position) {
+    // Create massive explosion effect
+    const explosionGeometry = new THREE.RingGeometry(2, 8, 32);
+    const explosionMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0xffd700, // Gold color for victory
+        transparent: true, 
+        opacity: 1.0,
+        side: THREE.DoubleSide
+    });
+    
+    const explosion = new THREE.Mesh(explosionGeometry, explosionMaterial);
+    explosion.position.copy(position);
+    explosion.position.y = 0.1;
+    explosion.rotation.x = -Math.PI / 2;
+    
+    scene.add(explosion);
+    
+    // Create victory particles
+    const particles = [];
+    for (let i = 0; i < 20; i++) {
+        const particleGeometry = new THREE.SphereGeometry(0.4, 8, 8);
+        const particleMaterial = new THREE.MeshBasicMaterial({ 
+            color: new THREE.Color().setHSL(0.15, 1, 0.6 + Math.random() * 0.4),
+            transparent: true, 
+            opacity: 1.0
+        });
+        
+        const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+        particle.position.copy(position);
+        particle.position.x += (Math.random() - 0.5) * 6;
+        particle.position.z += (Math.random() - 0.5) * 6;
+        particle.position.y = Math.random() * 3;
+        
+        scene.add(particle);
+        particles.push(particle);
+    }
+    
+    // Animate victory effect
+    let effectTime = 0;
+    const animateVictoryEffect = () => {
+        effectTime += 16;
+        const progress = effectTime / 1500; // 1.5 second effect
+        
+        // Animate explosion
+        explosion.scale.set(1 + progress * 4, 1 + progress * 4, 1);
+        explosion.material.opacity = Math.max(0, 1.0 - progress);
+        explosion.rotation.z += 0.05;
+        
+        // Animate particles
+        particles.forEach(particle => {
+            particle.position.y += 0.05;
+            particle.material.opacity = Math.max(0, 1.0 - progress);
+            particle.rotation.x += 0.1;
+            particle.rotation.y += 0.1;
+        });
+        
+        if (progress < 1) {
+            requestAnimationFrame(animateVictoryEffect);
+        } else {
+            // Clean up effects
+            scene.remove(explosion);
+            particles.forEach(particle => scene.remove(particle));
+        }
+    };
+    
+    animateVictoryEffect();
+}
+
+function updateMiniBossUI() {
+    const miniBossProgressElement = document.getElementById('miniBossProgress');
+    if (miniBossProgressElement) {
+        if (miniBossActive) {
+            miniBossProgressElement.textContent = 'BOSS ACTIVE!';
+            miniBossProgressElement.style.color = '#ff0000';
+            miniBossProgressElement.style.fontWeight = 'bold';
+        } else {
+            miniBossProgressElement.textContent = normalEnemyKills;
+            miniBossProgressElement.style.color = '#ffffff';
+            miniBossProgressElement.style.fontWeight = 'normal';
+        }
+    }
+}
+
+function createProgressionPortal(position) {
+    if (currentLevel >= maxLevel) {
+        console.log("🎉 CONGRATULATIONS! You've completed all levels! 🎉");
+        return;
+    }
+    
+    console.log(`🌟 Creating portal to Level ${currentLevel + 1}! 🌟`);
+    
+    // Create progression portal
+    const portalGeometry = new THREE.RingGeometry(2, 3.5, 24);
+    const portalMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0x00ff88, // Green-cyan color for progression
+        transparent: true,
+        opacity: 0.8,
+        side: THREE.DoubleSide
+    });
+    
+    nextLevelPortal = new THREE.Mesh(portalGeometry, portalMaterial);
+    nextLevelPortal.position.copy(position);
+    nextLevelPortal.position.y = 0.1;
+    nextLevelPortal.rotation.x = -Math.PI / 2;
+    
+    scene.add(nextLevelPortal);
+    
+    // Create portal center effect
+    const centerGeometry = new THREE.CircleGeometry(2, 24);
+    const centerMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0x00ff88,
+        transparent: true,
+        opacity: 0.4,
+        side: THREE.DoubleSide
+    });
+    
+    const portalCenter = new THREE.Mesh(centerGeometry, centerMaterial);
+    portalCenter.position.copy(position);
+    portalCenter.position.y = 0.12;
+    portalCenter.rotation.x = -Math.PI / 2;
+    
+    scene.add(portalCenter);
+    
+    // Store portal data for collision detection
+    if (!window.progressionPortals) window.progressionPortals = [];
+    window.progressionPortals.push({
+        position: position.clone(),
+        radius: 3.5,
+        ring: nextLevelPortal,
+        center: portalCenter,
+        targetLevel: currentLevel + 1
+    });
+    
+    // Animate portal
+    animateProgressionPortal(nextLevelPortal, portalCenter);
+    
+    console.log("Step into the portal to advance to the next level!");
+}
+
+function animateProgressionPortal(ring, center) {
+    const animatePortal = () => {
+        if (ring && ring.parent && center && center.parent) {
+            // Rotate portal rings
+            ring.rotation.z += 0.03;
+            center.rotation.z -= 0.02;
+            
+            // Pulse opacity
+            const time = Date.now() * 0.002;
+            ring.material.opacity = 0.8 + Math.sin(time) * 0.2;
+            center.material.opacity = 0.4 + Math.sin(time * 1.2) * 0.1;
+            
+            requestAnimationFrame(animatePortal);
+        }
+    };
+    
+    animatePortal();
+}
+
+function checkProgressionPortalCollision() {
+    if (!player || !window.progressionPortals) return;
+    
+    window.progressionPortals.forEach((portal, index) => {
+        const distance = player.position.distanceTo(portal.position);
+        
+        if (distance <= portal.radius) {
+            console.log(`🌟 Advancing to Level ${portal.targetLevel}! 🌟`);
+            
+            // Clean up current portal
+            if (portal.ring && portal.ring.parent) {
+                portal.ring.parent.remove(portal.ring);
+            }
+            if (portal.center && portal.center.parent) {
+                portal.center.parent.remove(portal.center);
+            }
+            
+            // Remove portal from array
+            window.progressionPortals.splice(index, 1);
+            
+            // Advance to next level
+            advanceToNextLevel();
+        }
+    });
+}
+
+function advanceToNextLevel() {
+    currentLevel++;
+    
+    console.log(`🎮 Welcome to Level ${currentLevel}! 🎮`);
+    
+    // Update UI
+    updateLevelUI();
+    
+    // Create teleport effect
+    createLevelTransitionEffect();
+    
+    // Create new level scene (copy of war scene with modifications)
+    createNextLevelScene();
+    
+    // Reset player position
+    player.position.set(0, 0.5, 0);
+    
+    // Reset progression counters
+    normalEnemyKills = 0;
+    stamina = 0;
+    staminaCharges = 0;
+    isStaminaMode = false;
+    
+    // Update all UI elements
+    updateStaminaUI();
+    updateMiniBossUI();
+    updateLevelUI();
+    
+    // Spawn new enemies for the new level
+    setTimeout(() => {
+        createEnemies();
+    }, 1000); // Delay to let transition effect play
+}
+
+function createNextLevelScene() {
+    // For now, we'll modify the existing war scene with level-specific changes
+    // In a full implementation, you could create entirely different scenes
+    
+    // Change background color based on level
+    const levelColors = [
+        0x1a1a2e, // Level 1 - Dark blue (original)
+        0x2e1a1a, // Level 2 - Dark red
+        0x1a2e1a, // Level 3 - Dark green
+        0x2e2e1a, // Level 4 - Dark yellow
+        0x2e1a2e  // Level 5 - Dark purple
+    ];
+    
+    if (warScene && currentLevel <= levelColors.length) {
+        warScene.background = new THREE.Color(levelColors[currentLevel - 1]);
+        console.log(`Level ${currentLevel} environment created with new atmosphere`);
+    }
+    
+    // Increase enemy difficulty based on level
+    miniBossSpawnThreshold = Math.max(40, 65 - (currentLevel - 1) * 5); // Faster mini boss spawns
+    console.log(`Level ${currentLevel}: Mini boss spawns after ${miniBossSpawnThreshold} kills`);
+}
+
+function createLevelTransitionEffect() {
+    if (!player) return;
+    
+    // Create level transition effect
+    const transitionGeometry = new THREE.RingGeometry(0.5, 8, 32);
+    const transitionMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0x00ff88,
+        transparent: true, 
+        opacity: 1.0,
+        side: THREE.DoubleSide
+    });
+    
+    const transitionEffect = new THREE.Mesh(transitionGeometry, transitionMaterial);
+    transitionEffect.position.copy(player.position);
+    transitionEffect.position.y = 0.1;
+    transitionEffect.rotation.x = -Math.PI / 2;
+    
+    scene.add(transitionEffect);
+    
+    // Create level up particles
+    const particles = [];
+    for (let i = 0; i < 24; i++) {
+        const particleGeometry = new THREE.SphereGeometry(0.3, 8, 8);
+        const particleMaterial = new THREE.MeshBasicMaterial({ 
+            color: 0x00ff88,
+            transparent: true, 
+            opacity: 1.0
+        });
+        
+        const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+        particle.position.copy(player.position);
+        
+        const angle = (i / 24) * Math.PI * 2;
+        particle.position.x += Math.cos(angle) * 4;
+        particle.position.z += Math.sin(angle) * 4;
+        particle.position.y = 0.5 + Math.random() * 2;
+        
+        scene.add(particle);
+        particles.push(particle);
+    }
+    
+    // Animate transition effect
+    let effectTime = 0;
+    const animateTransition = () => {
+        effectTime += 16;
+        const progress = effectTime / 1500; // 1.5 second effect
+        
+        // Animate main ring
+        transitionEffect.scale.set(1 + progress * 4, 1 + progress * 4, 1);
+        transitionEffect.material.opacity = Math.max(0, 1.0 - progress);
+        transitionEffect.rotation.z += 0.1;
+        
+        // Animate particles
+        particles.forEach((particle, index) => {
+            particle.position.y += 0.06;
+            particle.material.opacity = Math.max(0, 1.0 - progress);
+            particle.rotation.y += 0.15;
+        });
+        
+        if (progress < 1) {
+            requestAnimationFrame(animateTransition);
+        } else {
+            // Clean up effects
+            scene.remove(transitionEffect);
+            particles.forEach(particle => scene.remove(particle));
+        }
+    };
+    
+    animateTransition();
+    
+    // Add camera shake for dramatic effect
+    if (cameraSystem) {
+        cameraSystem.shake(0.8, 800);
+    }
+}
+
+function updateLevelUI() {
+    const currentLevelElement = document.getElementById('currentLevel');
+    const maxLevelElement = document.getElementById('maxLevel');
+    
+    if (currentLevelElement) currentLevelElement.textContent = currentLevel;
+    if (maxLevelElement) maxLevelElement.textContent = maxLevel;
+}
+
 function spawnNewEnemy() {
     // Determine enemy type
     const isFast = Math.random() > 0.7;
@@ -2090,23 +3551,73 @@ function applyAttackEffects(enemy) {
             // Burn damage over time (simplified)
             break;
         case 'storm':
-            // Chain lightning to nearby enemies
-            enemies.forEach(otherEnemy => {
-                if (otherEnemy !== enemy) {
-                    const distance = enemy.position.distanceTo(otherEnemy.position);
-                    if (distance <= 3) {
-                        otherEnemy.health -= 10;
+            // Enhanced chain lightning with visual effects
+            const chainRange = 4; // Range for each chain jump
+            const maxChains = 3; // Maximum number of chain jumps
+            const chainDamage = 15; // Damage per chain
+            
+            // Create sample lightning effects around the hit enemy first
+            createSampleLightning(enemy.position);
+            
+            // Start chaining from the hit enemy
+            let currentTarget = enemy;
+            let chainCount = 0;
+            const hitTargets = new Set([enemy]); // Track hit enemies to avoid double-hitting
+            
+            while (chainCount < maxChains && currentTarget) {
+                let nextTarget = null;
+                let closestDistance = Infinity;
+                
+                // Find the next enemy to chain to
+                enemies.forEach(otherEnemy => {
+                    if (!hitTargets.has(otherEnemy)) {
+                        const distance = currentTarget.position.distanceTo(otherEnemy.position);
+                        
+                        // Check if enemy is within chain range
+                        if (distance <= chainRange && distance < closestDistance) {
+                            closestDistance = distance;
+                            nextTarget = otherEnemy;
+                        }
                     }
+                });
+                
+                if (nextTarget) {
+                    // Damage the next target
+                    nextTarget.health -= chainDamage;
+                    hitTargets.add(nextTarget);
+                    
+                    // Record enemy hit for stamina decay system
+                    recordEnemyHit();
+                    
+                    // Create visual chain lightning effect
+                    createChainLightning(currentTarget.position, nextTarget.position);
+                    
+                    // Create sample lightning at the new target
+                    setTimeout(() => {
+                        createSampleLightning(nextTarget.position);
+                    }, chainCount * 100); // Stagger the effects
+                    
+                    console.log(`Chain lightning ${chainCount + 1}: ${chainDamage} damage to enemy at distance ${closestDistance.toFixed(2)}`);
+                    
+                    // Move to next target
+                    currentTarget = nextTarget;
+                    chainCount++;
+                } else {
+                    // No more valid targets
+                    break;
                 }
-            });
+            }
             break;
         case 'earth':
-            // Knockback
+            // Enhanced knockback with earth effects
             const direction = new THREE.Vector3();
             direction.subVectors(enemy.position, player.position);
             direction.normalize();
-            direction.multiplyScalar(1.5);
+            direction.multiplyScalar(2.5); // Stronger knockback
             enemy.position.add(direction);
+            
+            // Create small earth burst at enemy
+            createMiniEarthBurst(enemy.position);
             break;
         case 'shadow':
             // Poison effect (simplified)
@@ -2307,6 +3818,204 @@ function createChainEffect(immortal, hitbox) {
     return effects;
 }
 
+function createSampleLightning(position) {
+    // Create multiple lightning bolts around the hit enemy
+    const lightningCount = 5;
+    const effects = [];
+    
+    for (let i = 0; i < lightningCount; i++) {
+        const angle = (i / lightningCount) * Math.PI * 2;
+        const radius = 1.5 + Math.random() * 1; // Random radius between 1.5 and 2.5
+        const height = 3 + Math.random() * 2; // Random height between 3 and 5
+        
+        // Calculate lightning bolt position
+        const lightningPos = position.clone();
+        lightningPos.x += Math.cos(angle) * radius;
+        lightningPos.z += Math.sin(angle) * radius;
+        
+        // Create lightning bolt geometry
+        const lightningGeometry = new THREE.CylinderGeometry(0.03, 0.03, height);
+        const lightningMaterial = new THREE.MeshBasicMaterial({ 
+            color: 0x00ffff, 
+            transparent: true, 
+            opacity: 0.8 + Math.random() * 0.2 // Slight opacity variation
+        });
+        
+        const lightning = new THREE.Mesh(lightningGeometry, lightningMaterial);
+        lightning.position.copy(lightningPos);
+        lightning.position.y = height / 2;
+        
+        // Add slight random rotation for more natural look
+        lightning.rotation.x = (Math.random() - 0.5) * 0.3;
+        lightning.rotation.z = (Math.random() - 0.5) * 0.3;
+        
+        scene.add(lightning);
+        effects.push(lightning);
+        
+        // Animate lightning bolt
+        const animateLightning = () => {
+            let opacity = lightning.material.opacity;
+            opacity -= 0.05;
+            lightning.material.opacity = Math.max(0, opacity);
+            
+            // Add flickering effect
+            if (Math.random() < 0.3) {
+                lightning.material.opacity *= 0.5;
+            }
+            
+            if (opacity > 0) {
+                requestAnimationFrame(animateLightning);
+            } else {
+                if (lightning.parent) scene.remove(lightning);
+            }
+        };
+        
+        // Start animation with slight delay for each bolt
+        setTimeout(() => {
+            animateLightning();
+        }, i * 50);
+    }
+    
+    // Create central electric sphere
+    const sphereGeometry = new THREE.SphereGeometry(0.4, 8, 8);
+    const sphereMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0xffffff, 
+        transparent: true, 
+        opacity: 1.0
+    });
+    
+    const electricSphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+    electricSphere.position.copy(position);
+    electricSphere.position.y = 0.5;
+    
+    scene.add(electricSphere);
+    
+    // Animate electric sphere
+    let sphereTime = 0;
+    const animateSphere = () => {
+        sphereTime += 16;
+        const progress = sphereTime / 800; // 800ms duration
+        
+        // Pulsing effect
+        const scale = 1 + Math.sin(sphereTime * 0.02) * 0.3;
+        electricSphere.scale.set(scale, scale, scale);
+        
+        // Fade out
+        electricSphere.material.opacity = Math.max(0, 1 - progress);
+        
+        // Color shift from white to cyan
+        const colorProgress = Math.min(1, progress * 2);
+        electricSphere.material.color.setRGB(
+            1 - colorProgress * 0.5,
+            1 - colorProgress * 0.5,
+            1
+        );
+        
+        if (progress < 1) {
+            requestAnimationFrame(animateSphere);
+        } else {
+            if (electricSphere.parent) scene.remove(electricSphere);
+        }
+    };
+    
+    animateSphere();
+    
+    // Create electric particles
+    for (let i = 0; i < 8; i++) {
+        const particleGeometry = new THREE.SphereGeometry(0.1, 4, 4);
+        const particleMaterial = new THREE.MeshBasicMaterial({ 
+            color: 0x00ffff, 
+            transparent: true, 
+            opacity: 0.8
+        });
+        
+        const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+        particle.position.copy(position);
+        particle.position.y = 0.3;
+        
+        // Random velocity for particles
+        const velocity = new THREE.Vector3(
+            (Math.random() - 0.5) * 4,
+            Math.random() * 2 + 1,
+            (Math.random() - 0.5) * 4
+        );
+        
+        scene.add(particle);
+        
+        // Animate particles
+        let particleTime = 0;
+        const animateParticle = () => {
+            particleTime += 16;
+            const progress = particleTime / 600; // 600ms duration
+            
+            // Move particle
+            particle.position.add(velocity.clone().multiplyScalar(0.016));
+            
+            // Apply gravity
+            velocity.y -= 0.1;
+            
+            // Fade out
+            particle.material.opacity = Math.max(0, 0.8 - progress * 0.8);
+            
+            if (progress < 1 && particle.position.y > 0) {
+                requestAnimationFrame(animateParticle);
+            } else {
+                if (particle.parent) scene.remove(particle);
+            }
+        };
+        
+        // Start particle animation with slight delay
+        setTimeout(() => {
+            animateParticle();
+        }, i * 25);
+    }
+}
+
+function createChainLightning(fromPos, toPos) {
+    // Create lightning bolt between two positions
+    const direction = new THREE.Vector3().subVectors(toPos, fromPos);
+    const distance = direction.length();
+    const midPoint = new THREE.Vector3().addVectors(fromPos, toPos).multiplyScalar(0.5);
+    
+    // Create lightning bolt geometry
+    const lightningGeometry = new THREE.CylinderGeometry(0.05, 0.05, distance);
+    const lightningMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0x00ffff, 
+        transparent: true, 
+        opacity: 0.9
+    });
+    
+    const lightning = new THREE.Mesh(lightningGeometry, lightningMaterial);
+    lightning.position.copy(midPoint);
+    lightning.position.y = 0.5;
+    
+    // Orient lightning bolt towards target
+    lightning.lookAt(toPos);
+    lightning.rotateX(Math.PI / 2);
+    
+    scene.add(lightning);
+    
+    // Add electric spark at target
+    const sparkGeometry = new THREE.SphereGeometry(0.3, 8, 8);
+    const sparkMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0xffffff, 
+        transparent: true, 
+        opacity: 1.0
+    });
+    
+    const spark = new THREE.Mesh(sparkGeometry, sparkMaterial);
+    spark.position.copy(toPos);
+    spark.position.y = 0.5;
+    
+    scene.add(spark);
+    
+    // Remove effects after short duration
+    setTimeout(() => {
+        if (lightning.parent) scene.remove(lightning);
+        if (spark.parent) scene.remove(spark);
+    }, 300);
+}
+
 function createWaveEffect(immortal, hitbox) {
     const effects = [];
     
@@ -2425,6 +4134,12 @@ function updateEnemies() {
             return;
         }
         
+        // Mini boss special AI
+        if (enemy.isMiniBoss) {
+            updateMiniBossAI(enemy);
+            return;
+        }
+        
         // Simple AI - move towards player
         const direction = new THREE.Vector3();
         direction.subVectors(player.position, enemy.position);
@@ -2436,12 +4151,26 @@ function updateEnemies() {
             // Move towards player if out of attack range
             direction.multiplyScalar(enemy.speed);
             enemy.position.add(direction);
+            
+            // Debug: Log enemy movement occasionally
+            if (Math.random() < 0.01) { // 1% chance to log per frame
+                console.log(`Enemy ${enemy.type} moving toward player. Distance: ${distanceToPlayer.toFixed(2)}, Range: ${enemy.attackRange}`);
+            }
         } else {
             // In attack range - try to attack
             const currentTime = Date.now();
-            if (currentTime - enemy.lastAttackTime >= enemy.attackCooldown) {
+            const timeSinceLastAttack = currentTime - enemy.lastAttackTime;
+            
+            // Debug logging for attack attempts
+            if (timeSinceLastAttack >= enemy.attackCooldown) {
+                console.log(`Enemy ${enemy.type} attacking player! Distance: ${distanceToPlayer.toFixed(2)}, Range: ${enemy.attackRange}`);
                 enemyAttack(enemy);
                 enemy.lastAttackTime = currentTime;
+            } else {
+                // Log when enemy is in range but on cooldown (occasionally)
+                if (Math.random() < 0.02) { // 2% chance to log per frame
+                    console.log(`Enemy ${enemy.type} in range but on cooldown. Time left: ${(enemy.attackCooldown - timeSinceLastAttack).toFixed(0)}ms`);
+                }
             }
         }
         
@@ -2449,7 +4178,167 @@ function updateEnemies() {
     });
 }
 
+function updateMiniBossAI(miniBoss) {
+    const currentTime = Date.now();
+    const direction = new THREE.Vector3();
+    direction.subVectors(player.position, miniBoss.position);
+    const distanceToPlayer = direction.length();
+    direction.normalize();
+    
+    // Mini boss movement (slower but more deliberate)
+    if (distanceToPlayer > miniBoss.attackRange) {
+        direction.multiplyScalar(miniBoss.speed);
+        miniBoss.position.add(direction);
+    }
+    
+    // Keep mini boss at proper height
+    miniBoss.position.y = 1;
+    
+    // Check for skill usage
+    if (currentTime - miniBoss.lastSkill1Time >= miniBoss.skill1Timer) {
+        useMiniBossSkill1(miniBoss);
+        miniBoss.lastSkill1Time = currentTime;
+    }
+    
+    if (currentTime - miniBoss.lastSkill2Time >= miniBoss.skill2Timer) {
+        useMiniBossSkill2(miniBoss);
+        miniBoss.lastSkill2Time = currentTime;
+    }
+    
+    // Regular attack
+    if (distanceToPlayer <= miniBoss.attackRange) {
+        if (currentTime - miniBoss.lastAttackTime >= miniBoss.attackCooldown) {
+            enemyAttack(miniBoss);
+            miniBoss.lastAttackTime = currentTime;
+        }
+    }
+}
+
+function useMiniBossSkill1(miniBoss) {
+    console.log("🔥 Mini Boss Skill 1: Fire Wave! 🔥");
+    
+    // Create expanding fire wave
+    const waveGeometry = new THREE.RingGeometry(1, 8, 24);
+    const waveMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0xff4400,
+        transparent: true, 
+        opacity: 0.7,
+        side: THREE.DoubleSide
+    });
+    
+    const fireWave = new THREE.Mesh(waveGeometry, waveMaterial);
+    fireWave.position.copy(miniBoss.position);
+    fireWave.position.y = 0.1;
+    fireWave.rotation.x = -Math.PI / 2;
+    
+    scene.add(fireWave);
+    
+    // Check for player damage
+    const distanceToPlayer = miniBoss.position.distanceTo(player.position);
+    if (distanceToPlayer <= 8 && !isDodging && !player.userData.invincible) {
+        // Player takes heavy damage
+        health -= 50;
+        updateHealthBar();
+        console.log("Player hit by Fire Wave for 50 damage!");
+        
+        // Visual feedback
+        if (cameraSystem) {
+            cameraSystem.shake(0.6, 300);
+        }
+        
+        // Player flash effect
+        const originalColor = player.material.color.clone();
+        player.material.color.setHex(0xff0000);
+        setTimeout(() => {
+            if (player.material) {
+                player.material.color.copy(originalColor);
+            }
+        }, 150);
+        
+        // Check for death
+        if (health <= 0) {
+            handlePlayerDeath();
+        }
+    }
+    
+    // Animate fire wave
+    let waveTime = 0;
+    const animateWave = () => {
+        waveTime += 16;
+        const progress = waveTime / 1000; // 1 second expansion
+        
+        fireWave.scale.set(1 + progress * 2, 1 + progress * 2, 1);
+        fireWave.material.opacity = Math.max(0, 0.7 - progress * 0.7);
+        fireWave.rotation.z += 0.05;
+        
+        if (progress < 1) {
+            requestAnimationFrame(animateWave);
+        } else {
+            scene.remove(fireWave);
+        }
+    };
+    
+    animateWave();
+}
+
+function useMiniBossSkill2(miniBoss) {
+    console.log("⚡ Mini Boss Skill 2: Lightning Barrage! ⚡");
+    
+    // Create multiple lightning strikes around player
+    for (let i = 0; i < 5; i++) {
+        setTimeout(() => {
+            const angle = (i / 5) * Math.PI * 2;
+            const strikePos = player.position.clone();
+            strikePos.x += Math.cos(angle) * 3;
+            strikePos.z += Math.sin(angle) * 3;
+            
+            // Create lightning bolt
+            const lightningGeometry = new THREE.CylinderGeometry(0.2, 0.2, 8);
+            const lightningMaterial = new THREE.MeshBasicMaterial({ 
+                color: 0x00ffff,
+                transparent: true, 
+                opacity: 0.9
+            });
+            
+            const lightning = new THREE.Mesh(lightningGeometry, lightningMaterial);
+            lightning.position.copy(strikePos);
+            lightning.position.y = 4;
+            
+            scene.add(lightning);
+            
+            // Check for player damage
+            const distanceToStrike = player.position.distanceTo(strikePos);
+            if (distanceToStrike <= 2 && !isDodging && !player.userData.invincible) {
+                // Player takes damage
+                health -= 30;
+                updateHealthBar();
+                console.log("Player hit by Lightning Strike for 30 damage!");
+                
+                // Visual feedback
+                if (cameraSystem) {
+                    cameraSystem.shake(0.4, 200);
+                }
+                
+                // Check for death
+                if (health <= 0) {
+                    handlePlayerDeath();
+                }
+            }
+            
+            // Remove lightning after short time
+            setTimeout(() => {
+                if (lightning.parent) {
+                    scene.remove(lightning);
+                }
+            }, 300);
+            
+        }, i * 200); // Stagger the strikes
+    }
+}
+
 function enemyAttack(enemy) {
+    console.log(`Enemy ${enemy.type} attempting attack. Distance to player: ${enemy.position.distanceTo(player.position).toFixed(2)}`);
+    
     if (isDodging) {
         console.log("Player dodged enemy attack!");
         return; // Player is dodging, attack misses
@@ -2459,6 +4348,7 @@ function enemyAttack(enemy) {
     
     // Check if player is within attack range
     if (distanceToPlayer > enemy.attackRange) {
+        console.log(`Enemy out of attack range. Distance: ${distanceToPlayer.toFixed(2)}, Range: ${enemy.attackRange}`);
         return; // Player moved out of range
     }
     
@@ -2471,6 +4361,7 @@ function enemyAttack(enemy) {
             // Fast enemies - precise single-target attack
             if (distanceToPlayer <= enemy.damageRadius) {
                 hitPlayer = true;
+                console.log(`Precise attack hit! Distance: ${distanceToPlayer.toFixed(2)}, Damage radius: ${enemy.damageRadius}`);
             }
             break;
             
@@ -2478,6 +4369,7 @@ function enemyAttack(enemy) {
             // Normal enemies - area attack around them
             if (distanceToPlayer <= enemy.damageRadius) {
                 hitPlayer = true;
+                console.log(`Circle attack hit! Distance: ${distanceToPlayer.toFixed(2)}, Damage radius: ${enemy.damageRadius}`);
             }
             break;
             
@@ -2487,9 +4379,20 @@ function enemyAttack(enemy) {
             if (curveHit.hit) {
                 hitPlayer = true;
                 damageMultiplier = curveHit.damageMultiplier;
+                console.log(`Curve attack hit! Multiplier: ${damageMultiplier.toFixed(2)}`);
+            }
+            break;
+            
+        case 'miniboss':
+            // Mini boss attacks - larger area attack
+            if (distanceToPlayer <= enemy.damageRadius) {
+                hitPlayer = true;
+                console.log(`Mini boss attack hit! Distance: ${distanceToPlayer.toFixed(2)}, Damage radius: ${enemy.damageRadius}`);
             }
             break;
     }
+    
+    console.log(`Enemy attack attempt: Type=${enemy.hitboxType}, Distance=${distanceToPlayer.toFixed(2)}, Hit=${hitPlayer}`);
     
     // Create enemy attack visual effect
     createEnemyAttackEffect(enemy);
@@ -2506,7 +4409,7 @@ function enemyAttack(enemy) {
         
         // Player takes damage
         health -= finalDamage;
-        document.getElementById('health').textContent = Math.max(0, Math.floor(health));
+        updateHealthBar();
         
         console.log(`Enemy ${enemy.type} hit player for ${finalDamage} damage! (${damageMultiplier.toFixed(2)}x multiplier)`);
         
@@ -2526,23 +4429,7 @@ function enemyAttack(enemy) {
         createEnemyAttackEffect(enemy);
         
         if (health <= 0) {
-            console.log("Player died! Returning to home dimension...");
-            
-            // Reset health
-            health = 100;
-            document.getElementById('health').textContent = health;
-            
-            // Add brief invincibility after death
-            player.userData.invincible = true;
-            player.userData.invincibilityTime = 3000; // 3 seconds of invincibility
-            
-            // Return to home dimension (safe haven)
-            switchToDimension('home');
-            
-            // Add death effect
-            createDeathEffect();
-            
-            console.log("Player respawned safely in home dimension with temporary invincibility");
+            handlePlayerDeath();
         }
     }
 }
@@ -2854,6 +4741,75 @@ function createTeleportEffect() {
     animateTeleport();
 }
 
+function handlePlayerDeath() {
+    console.log("💀 Player has died! 💀");
+    
+    // Create death effect at death position
+    createDeathEffect();
+    
+    // Start the dramatic death transition
+    startDeathTransition();
+    
+    console.log("Death transition started - screen will fade to black");
+}
+
+function startDeathTransition() {
+    // Disable player controls during death transition
+    gameState = 'dying';
+    
+    // Add red flash effect first
+    createRedFlashEffect();
+    
+    // Start fade to black after brief delay
+    setTimeout(() => {
+        const deathOverlay = document.getElementById('deathOverlay');
+        deathOverlay.classList.add('death-fade');
+    }, 500); // Small delay after red flash
+    
+    // Add dramatic camera shake
+    if (cameraSystem) {
+        cameraSystem.shake(1.0, 2000);
+    }
+    
+    // After fade completes, show death scene
+    setTimeout(() => {
+        showDeathScene();
+    }, 3500); // 3.5 seconds total (500ms delay + 3000ms fade)
+    
+    console.log("Screen fading to black...");
+}
+
+function createRedFlashEffect() {
+    // Create red flash overlay
+    const flashOverlay = document.createElement('div');
+    flashOverlay.style.position = 'absolute';
+    flashOverlay.style.top = '0';
+    flashOverlay.style.left = '0';
+    flashOverlay.style.width = '100%';
+    flashOverlay.style.height = '100%';
+    flashOverlay.style.background = 'rgba(255, 0, 0, 0.8)';
+    flashOverlay.style.zIndex = '499';
+    flashOverlay.style.pointerEvents = 'none';
+    flashOverlay.style.opacity = '1';
+    flashOverlay.style.transition = 'opacity 0.5s ease-out';
+    
+    document.getElementById('gameContainer').appendChild(flashOverlay);
+    
+    // Fade out the red flash
+    setTimeout(() => {
+        flashOverlay.style.opacity = '0';
+        
+        // Remove the flash element after fade
+        setTimeout(() => {
+            if (flashOverlay.parentNode) {
+                flashOverlay.parentNode.removeChild(flashOverlay);
+            }
+        }, 500);
+    }, 100); // Very brief red flash
+    
+    console.log("Red flash effect triggered");
+}
+
 function createDeathEffect() {
     if (!player) return;
     
@@ -2914,17 +4870,132 @@ function createDeathEffect() {
     }
 }
 
+function updateStaminaDecay() {
+    const currentTime = Date.now();
+    
+    // Only decay stamina if we have some and we're not in stamina mode
+    if (stamina > 0 && !isStaminaMode && currentDimension === 'war') {
+        // Check if enough time has passed since last enemy hit
+        const timeSinceLastHit = currentTime - lastEnemyHitTime;
+        
+        // Debug logging every 5 seconds
+        if (Math.floor(timeSinceLastHit / 5000) > Math.floor((timeSinceLastHit - 16) / 5000)) {
+            console.log(`Stamina decay check: ${Math.floor(timeSinceLastHit / 1000)}s since last hit (need ${staminaDecayDelay / 1000}s)`);
+        }
+        
+        if (timeSinceLastHit >= staminaDecayDelay) {
+            // Check if enough time has passed since last decay
+            const timeSinceLastDecay = currentTime - lastStaminaDecayTime;
+            
+            if (timeSinceLastDecay >= staminaDecayRate) {
+                // Decay stamina by 1 point
+                stamina = Math.max(0, stamina - 1);
+                lastStaminaDecayTime = currentTime;
+                
+                console.log(`🔻 Stamina decayed to ${stamina} (no enemy hits for ${Math.floor(timeSinceLastHit / 1000)}s)`);
+                
+                // Update UI
+                updateStaminaUI();
+                
+                // Create visual effect for stamina decay
+                createStaminaDecayEffect();
+            }
+        }
+    } else if (stamina > 0) {
+        // Debug why decay isn't happening
+        const reasons = [];
+        if (isStaminaMode) reasons.push("in stamina mode");
+        if (currentDimension !== 'war') reasons.push(`in ${currentDimension} dimension`);
+        
+        // Log once every 10 seconds when conditions aren't met
+        const timeSinceLastHit = currentTime - lastEnemyHitTime;
+        if (Math.floor(timeSinceLastHit / 10000) > Math.floor((timeSinceLastHit - 16) / 10000)) {
+            console.log(`Stamina decay disabled: ${reasons.join(', ')}`);
+        }
+    }
+}
+
+function createStaminaDecayEffect() {
+    if (!player) return;
+    
+    // Create red decay effect around player
+    const decayGeometry = new THREE.RingGeometry(0.5, 2, 16);
+    const decayMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0xff4444, // Red color for decay
+        transparent: true,
+        opacity: 0.6,
+        side: THREE.DoubleSide
+    });
+    
+    const decayEffect = new THREE.Mesh(decayGeometry, decayMaterial);
+    decayEffect.position.copy(player.position);
+    decayEffect.position.y = 0.1;
+    decayEffect.rotation.x = -Math.PI / 2;
+    
+    scene.add(decayEffect);
+    
+    // Animate decay effect
+    let effectTime = 0;
+    const animateDecay = () => {
+        effectTime += 16;
+        const progress = effectTime / 600; // 600ms effect
+        
+        // Shrink and fade
+        const scale = 1 - progress * 0.5;
+        decayEffect.scale.set(scale, scale, 1);
+        decayEffect.material.opacity = Math.max(0, 0.6 - progress * 0.6);
+        decayEffect.rotation.z -= 0.05; // Rotate opposite to stamina gain
+        
+        if (progress < 1) {
+            requestAnimationFrame(animateDecay);
+        } else {
+            if (decayEffect.parent) scene.remove(decayEffect);
+        }
+    };
+    
+    animateDecay();
+}
+
+function recordEnemyHit() {
+    // Record the time when an enemy was hit
+    lastEnemyHitTime = Date.now();
+    
+    // Reset decay timer
+    lastStaminaDecayTime = Date.now();
+    
+    console.log(`🎯 Enemy hit recorded - stamina decay timer reset`);
+}
+
 function animate() {
     requestAnimationFrame(animate);
+    
+    // Only run game logic when actually playing (not during death transition)
+    if (gameState !== 'playing' && gameState !== 'dying') {
+        return;
+    }
+    
+    // During dying state, only update camera and render (no game logic)
+    if (gameState === 'dying') {
+        if (cameraSystem) {
+            cameraSystem.update();
+        }
+        if (renderer && scene && camera) {
+            renderer.render(scene, camera);
+        }
+        return;
+    }
     
     // Update game logic
     handleMovement();
     updateEnemies();
     checkPortalCollision();
+    checkProgressionPortalCollision();
     updatePortalEffects();
     
     // Update camera system
-    cameraSystem.update();
+    if (cameraSystem) {
+        cameraSystem.update();
+    }
     
     // Update cooldowns
     if (attackCooldown > 0) {
@@ -2934,7 +5005,11 @@ function animate() {
     if (abilityCooldown > 0) {
         abilityCooldown -= 16;
         if (abilityCooldown <= 0) {
-            document.getElementById('abilityStatus').textContent = 'Ready';
+            if (isStaminaMode) {
+                document.getElementById('abilityStatus').textContent = 'STAMINA MODE!';
+            } else {
+                document.getElementById('abilityStatus').textContent = 'Ready';
+            }
         }
     }
     
@@ -2958,9 +5033,14 @@ function animate() {
         }
     }
     
+    // Update stamina decay system
+    updateStaminaDecay();
+    
     // Render the scene
-    renderer.render(scene, camera);
+    if (renderer && scene && camera) {
+        renderer.render(scene, camera);
+    }
 }
 
-// Start the game when page loads
-window.addEventListener('load', init);
+// Start the app when page loads
+window.addEventListener('load', initializeApp);
