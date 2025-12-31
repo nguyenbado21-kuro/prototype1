@@ -48,7 +48,7 @@ let homeScene, warScene;
 let portal; // Portal object for teleportation
 
 // Audio system
-let homeMusic, warMusic;
+let homeMusic, warMusic, menuMusic;
 let currentMusic = null;
 let musicVolume = 0.3; // Default volume (30%)
 let audioInitialized = false; // Track if audio context is ready
@@ -92,7 +92,7 @@ const immortals = {
         attackRange: 2.5,
         attackDamage: 40,
         attackCooldown: 800,
-        abilityCooldown: 4000,
+        abilityCooldown: 10000,
         speed: 0.08,
         // Hitbox properties - Ground slam wave
         hitboxType: 'wave', // Expanding wave attack
@@ -130,22 +130,100 @@ function initializeMenuSystem() {
     // Show intro scene first
     showIntroScene();
     
-    // Set up intro event listeners
-    document.getElementById('introSkip').addEventListener('click', skipIntro);
+    // Set up intro event listeners with error handling
+    try {
+        const introSkip = document.getElementById('introSkip');
+        if (introSkip) {
+            introSkip.addEventListener('click', skipIntro);
+            console.log("Intro skip button listener attached");
+        } else {
+            console.error("introSkip button not found!");
+        }
+    } catch (error) {
+        console.error("Error setting up intro listeners:", error);
+    }
     
-    // Set up main menu event listeners
-    document.getElementById('playButton').addEventListener('click', startGame);
-    document.getElementById('settingsButton').addEventListener('click', showSettings);
-    document.getElementById('quitButton').addEventListener('click', quitGame);
+    // Set up main menu event listeners with error handling
+    try {
+        const playButton = document.getElementById('playButton');
+        const settingsButton = document.getElementById('settingsButton');
+        const quitButton = document.getElementById('quitButton');
+        
+        if (playButton) {
+            playButton.addEventListener('click', startGame);
+            console.log("Play button listener attached");
+        } else {
+            console.error("playButton not found!");
+        }
+        
+        if (settingsButton) {
+            settingsButton.addEventListener('click', showSettings);
+            console.log("Settings button listener attached");
+        } else {
+            console.error("settingsButton not found!");
+        }
+        
+        if (quitButton) {
+            quitButton.addEventListener('click', quitGame);
+            console.log("Quit button listener attached");
+        } else {
+            console.error("quitButton not found!");
+        }
+    } catch (error) {
+        console.error("Error setting up main menu listeners:", error);
+    }
     
-    // Set up settings menu event listeners
-    document.getElementById('backToMenuButton').addEventListener('click', showMainMenu);
-    document.getElementById('volumeSlider').addEventListener('input', updateVolume);
-    document.getElementById('muteButton').addEventListener('click', toggleMute);
+    // Set up settings menu event listeners with error handling
+    try {
+        const backToMenuButton = document.getElementById('backToMenuButton');
+        const volumeSlider = document.getElementById('volumeSlider');
+        const muteButton = document.getElementById('muteButton');
+        
+        if (backToMenuButton) {
+            backToMenuButton.addEventListener('click', showMainMenu);
+            console.log("Back to menu button listener attached");
+        } else {
+            console.error("backToMenuButton not found!");
+        }
+        
+        if (volumeSlider) {
+            volumeSlider.addEventListener('input', updateVolume);
+            console.log("Volume slider listener attached");
+        } else {
+            console.error("volumeSlider not found!");
+        }
+        
+        if (muteButton) {
+            muteButton.addEventListener('click', toggleMute);
+            console.log("Mute button listener attached");
+        } else {
+            console.error("muteButton not found!");
+        }
+    } catch (error) {
+        console.error("Error setting up settings menu listeners:", error);
+    }
     
-    // Set up death scene event listeners
-    document.getElementById('respawnButton').addEventListener('click', respawnPlayer);
-    document.getElementById('returnToMenuButton').addEventListener('click', returnToMenuFromDeath);
+    // Set up death scene event listeners with error handling
+    try {
+        const respawnButton = document.getElementById('respawnButton');
+        const returnToMenuButton = document.getElementById('returnToMenuButton');
+        
+        if (respawnButton) {
+            respawnButton.addEventListener('click', respawnPlayer);
+            console.log("Respawn button listener attached");
+        } else {
+            console.error("respawnButton not found!");
+        }
+        
+        if (returnToMenuButton) {
+            returnToMenuButton.addEventListener('click', returnToMenuFromDeath);
+            console.log("Return to menu button listener attached");
+        } else {
+            console.error("returnToMenuButton not found!");
+        }
+    } catch (error) {
+        console.error("Error setting up death scene listeners:", error);
+    }
     
     // Auto-skip cutscene after 30 seconds if no video or if video is too long
     setTimeout(() => {
@@ -166,6 +244,9 @@ function showIntroScene() {
     document.getElementById('settingsMenu').style.display = 'none';
     hideGameUI();
     
+    // Play Vietnamese menu music for intro
+    playMusic('menu');
+    
     // Check if video is available and play it
     const introVideo = document.getElementById('introVideo');
     if (introVideo && introVideo.querySelector('source')) {
@@ -176,7 +257,7 @@ function showIntroScene() {
         document.getElementById('introVideo').style.display = 'none';
     }
     
-    console.log("Showing intro cutscene");
+    console.log("Showing intro cutscene with Bốn Vị Bất Tử music");
 }
 
 function playIntroCutscene() {
@@ -253,7 +334,10 @@ function showMainMenu() {
     document.getElementById('settingsMenu').style.display = 'none';
     hideGameUI();
     
-    console.log("Showing main menu");
+    // Play Vietnamese menu music
+    playMusic('menu');
+    
+    console.log("Showing main menu with Bốn Vị Bất Tử music");
 }
 
 function showSettings() {
@@ -261,17 +345,25 @@ function showSettings() {
     document.getElementById('mainMenu').style.display = 'none';
     document.getElementById('settingsMenu').style.display = 'flex';
     
+    // Continue playing Vietnamese menu music in settings
+    playMusic('menu');
+    
     // Update settings UI with current values
     const volumeSlider = document.getElementById('volumeSlider');
-    volumeSlider.value = Math.round(musicVolume * 100);
+    if (volumeSlider) {
+        volumeSlider.value = Math.round(musicVolume * 100);
+    }
     
     const muteButton = document.getElementById('muteButton');
-    muteButton.textContent = currentMusic && !currentMusic.muted ? 'Unmuted' : 'Muted';
+    if (muteButton) {
+        muteButton.textContent = currentMusic && !currentMusic.muted ? 'Unmuted' : 'Muted';
+    }
     
-    console.log("Showing settings menu");
+    console.log("Showing settings menu with Bốn Vị Bất Tử music");
 }
 
 function startGame() {
+    console.log("🎮 START GAME BUTTON CLICKED!");
     gameState = 'playing';
     document.getElementById('introScene').style.display = 'none';
     document.getElementById('mainMenu').style.display = 'none';
@@ -280,11 +372,12 @@ function startGame() {
     
     // Initialize game if not already done
     if (!gameInitialized) {
+        console.log("Initializing game for first time...");
         initializeGame();
         gameInitialized = true;
     }
     
-    console.log("Starting game...");
+    console.log("Game started successfully!");
 }
 
 function quitGame() {
@@ -446,10 +539,83 @@ function returnToMenuFromDeath() {
 // Initialize the menu system when page loads
 function initializeApp() {
     console.log("Initializing application...");
-    initializeMenuSystem();
+    
+    // Wait for DOM to be fully loaded
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log("DOM loaded, initializing menu system...");
+            initializeMenuSystem();
+            setupEarlyAudioInit();
+        });
+    } else {
+        // DOM is already loaded
+        initializeMenuSystem();
+        setupEarlyAudioInit();
+    }
     
     // Start the animation loop (but game logic only runs when playing)
     animate();
+    
+    // Add a backup initialization after a short delay
+    setTimeout(() => {
+        console.log("Backup initialization check...");
+        // Re-check if buttons exist and re-attach listeners if needed
+        const playButton = document.getElementById('playButton');
+        if (playButton && !playButton.onclick) {
+            console.log("Re-initializing menu system...");
+            initializeMenuSystem();
+        }
+    }, 1000);
+}
+
+function setupEarlyAudioInit() {
+    console.log("🎵 Setting up immediate audio initialization...");
+    
+    // Initialize audio immediately without waiting for user interaction
+    initializeAudio();
+    
+    // Set up multiple event listeners to catch the first user interaction
+    const events = ['click', 'keydown', 'touchstart', 'mousedown', 'mousemove'];
+    
+    function handleFirstInteraction() {
+        console.log("🎵 First user interaction detected - ensuring audio is playing!");
+        
+        // Hide the audio prompt
+        const audioPrompt = document.getElementById('audioPrompt');
+        if (audioPrompt) {
+            audioPrompt.style.display = 'none';
+        }
+        
+        // Ensure audio is initialized
+        if (!audioInitialized) {
+            initializeAudio();
+            audioInitialized = true;
+        }
+        
+        // Force start menu music immediately
+        setTimeout(() => {
+            playMusic('menu');
+            console.log("🎵 Forcing Bốn Vị Bất Tử music to play!");
+        }, 50);
+        
+        // Remove all event listeners after first interaction
+        events.forEach(event => {
+            document.removeEventListener(event, handleFirstInteraction, true);
+        });
+    }
+    
+    // Add event listeners for first interaction
+    events.forEach(event => {
+        document.addEventListener(event, handleFirstInteraction, true);
+    });
+    
+    // Try to start music immediately (will likely be blocked by browser)
+    setTimeout(() => {
+        console.log("🎵 Attempting immediate music start...");
+        playMusic('menu');
+    }, 500);
+    
+    console.log("🎵 Audio will start immediately or on first user interaction");
 }
 
 // Rename the old init function to initializeGame
@@ -528,9 +694,10 @@ function initializeGame() {
 
 function initializeAudio() {
     try {
-        // Create audio objects for both scenes
+        // Create audio objects for all scenes
         homeMusic = new Audio('assets/audio/home-music.mp3');
         warMusic = new Audio('assets/audio/war-music.mp3');
+        menuMusic = new Audio('Bốn Vị Bất Tử.mp3'); // Use the specific Vietnamese music file
         
         // Configure home music (peaceful, looping)
         homeMusic.loop = true;
@@ -542,30 +709,27 @@ function initializeAudio() {
         warMusic.volume = musicVolume;
         warMusic.preload = 'auto';
         
-        console.log("Audio files loaded successfully");
+        // Configure menu music (atmospheric, looping) - "Bốn Vị Bất Tử"
+        menuMusic.loop = true;
+        menuMusic.volume = musicVolume;
+        menuMusic.preload = 'auto';
         
-        // Update UI status
-        const audioStatusElement = document.getElementById('audioStatus');
-        if (audioStatusElement) {
-            audioStatusElement.textContent = 'Ready';
-        }
+        console.log("🎵 Audio files loaded successfully (including Bốn Vị Bất Tử.mp3 for menu)");
         
-        // Add error handling
+        // Add error handling for all music tracks
         homeMusic.addEventListener('error', (e) => {
             console.warn("Home music failed to load:", e);
-            if (audioStatusElement) {
-                audioStatusElement.textContent = 'Error loading home music';
-            }
         });
         
         warMusic.addEventListener('error', (e) => {
             console.warn("War music failed to load:", e);
-            if (audioStatusElement) {
-                audioStatusElement.textContent = 'Error loading war music';
-            }
         });
         
-        // Add loaded event listeners
+        menuMusic.addEventListener('error', (e) => {
+            console.warn("Menu music (Bốn Vị Bất Tử.mp3) failed to load:", e);
+        });
+        
+        // Add loaded event listeners with immediate play attempt
         homeMusic.addEventListener('canplaythrough', () => {
             console.log("Home music ready to play");
         });
@@ -574,29 +738,36 @@ function initializeAudio() {
             console.log("War music ready to play");
         });
         
-        // Start playing music for current dimension if we're already in a dimension
-        if (currentDimension === 'home') {
-            playMusic('home');
-        } else if (currentDimension === 'war') {
-            playMusic('war');
-        }
+        menuMusic.addEventListener('canplaythrough', () => {
+            console.log("🎵 Menu music (Bốn Vị Bất Tử.mp3) ready to play");
+            // Try to start menu music immediately if we're in a menu state
+            if (gameState === 'intro' || gameState === 'menu' || gameState === 'settings') {
+                setTimeout(() => {
+                    playMusic('menu');
+                }, 100);
+            }
+        });
+        
+        // Immediately try to start appropriate music based on current state
+        setTimeout(() => {
+            if (gameState === 'menu' || gameState === 'intro' || gameState === 'settings') {
+                playMusic('menu');
+                console.log("🎵 Attempting to start Bốn Vị Bất Tử music immediately");
+            } else if (currentDimension === 'home') {
+                playMusic('home');
+            } else if (currentDimension === 'war') {
+                playMusic('war');
+            }
+        }, 200);
         
     } catch (error) {
         console.error("Failed to initialize audio:", error);
-        const audioStatusElement = document.getElementById('audioStatus');
-        if (audioStatusElement) {
-            audioStatusElement.textContent = 'Failed to initialize';
-        }
     }
 }
 
 function playMusic(musicType) {
     try {
-        // Check if audio is initialized
-        if (!audioInitialized) {
-            console.log("Audio not yet initialized - waiting for user interaction");
-            return;
-        }
+        console.log(`🎵 Attempting to play ${musicType} music...`);
         
         // Stop current music if playing
         if (currentMusic) {
@@ -608,20 +779,44 @@ function playMusic(musicType) {
         if (musicType === 'home' && homeMusic) {
             currentMusic = homeMusic;
             homeMusic.play().then(() => {
-                console.log("Home music started successfully");
+                console.log("✅ Home music started successfully");
+                audioInitialized = true;
             }).catch(e => {
-                console.warn("Could not play home music:", e);
-                // Try to initialize audio on next user interaction
-                audioInitialized = false;
+                console.warn("❌ Could not play home music:", e);
+                // Try again after a short delay
+                setTimeout(() => {
+                    if (gameState === 'playing' && currentDimension === 'home') {
+                        homeMusic.play().catch(() => {});
+                    }
+                }, 1000);
             });
         } else if (musicType === 'war' && warMusic) {
             currentMusic = warMusic;
             warMusic.play().then(() => {
-                console.log("War music started successfully");
+                console.log("✅ War music started successfully");
+                audioInitialized = true;
             }).catch(e => {
-                console.warn("Could not play war music:", e);
-                // Try to initialize audio on next user interaction
-                audioInitialized = false;
+                console.warn("❌ Could not play war music:", e);
+                setTimeout(() => {
+                    if (gameState === 'playing' && currentDimension === 'war') {
+                        warMusic.play().catch(() => {});
+                    }
+                }, 1000);
+            });
+        } else if (musicType === 'menu' && menuMusic) {
+            currentMusic = menuMusic;
+            menuMusic.play().then(() => {
+                console.log("✅ Menu music (Bốn Vị Bất Tử.mp3) started successfully");
+                audioInitialized = true;
+            }).catch(e => {
+                console.warn("❌ Could not play menu music (Bốn Vị Bất Tử.mp3):", e);
+                console.log("🔄 Will retry when user interacts with page...");
+                // Keep trying every few seconds
+                setTimeout(() => {
+                    if (gameState === 'intro' || gameState === 'menu' || gameState === 'settings') {
+                        menuMusic.play().catch(() => {});
+                    }
+                }, 2000);
             });
         }
     } catch (error) {
@@ -647,6 +842,7 @@ function setMusicVolume(volume) {
     
     if (homeMusic) homeMusic.volume = musicVolume;
     if (warMusic) warMusic.volume = musicVolume;
+    if (menuMusic) menuMusic.volume = musicVolume;
     
     console.log(`Music volume set to ${Math.round(musicVolume * 100)}%`);
 }
@@ -2285,108 +2481,420 @@ function stormAbility() {
 }
 
 function earthAbility() {
-    console.log("Stone Shield!");
-    // Temporary invincibility and knockback
-    player.userData.invincible = true;
-    player.userData.invincibilityTime = 2000; // 2 seconds of invincibility
+    console.log("🏔️ Mountain Line Creation! 🏔️");
     
-    // Find nearest enemy for targeted knockback
-    let nearestEnemy = null;
-    let minDistance = Infinity;
+    // Calculate direction from player to mouse position
+    const direction = new THREE.Vector3();
+    direction.subVectors(mouseWorldPos, player.position);
+    direction.normalize();
     
-    enemies.forEach(enemy => {
-        const distance = enemy.position.distanceTo(player.position);
-        if (distance < minDistance) {
-            minDistance = distance;
-            nearestEnemy = enemy;
-        }
-    });
+    const mountainRange = immortals[currentImmortal].attackRange * 2; // 5 unit range
+    const mountainCount = 5; // Number of mountains in the line
+    const mountainSpacing = mountainRange / mountainCount; // Space between mountains
     
-    if (nearestEnemy && minDistance <= 5) {
-        // Deal damage
-        nearestEnemy.health -= 100;
+    console.log(`Creating ${mountainCount} mountains in a line, range: ${mountainRange} units`);
+    
+    let hitCount = 0;
+    
+    // Create mountains along the line and check for enemy damage
+    for (let i = 1; i <= mountainCount; i++) {
+        const mountainPos = player.position.clone();
+        mountainPos.add(direction.clone().multiplyScalar(i * mountainSpacing));
         
-        // Record enemy hit for stamina decay system
-        recordEnemyHit();
+        // Create mountain visual
+        setTimeout(() => {
+            createMountain(mountainPos, i);
+        }, i * 200); // Stagger mountain creation
         
-        if (nearestEnemy.health <= 0) {
-            const index = enemies.indexOf(nearestEnemy);
-            if (index !== -1) {
-                handleEnemyDeath(nearestEnemy, index);
+        // Check for enemies near this mountain position
+        enemies.forEach((enemy, index) => {
+            const distanceToMountain = enemy.position.distanceTo(mountainPos);
+            if (distanceToMountain <= 2) { // Mountain damage radius
+                enemy.health -= 60; // Mountain damage
+                hitCount++;
+                
+                // Record enemy hit for stamina decay system
+                recordEnemyHit();
+                
+                // Knockback from mountain
+                const knockDirection = new THREE.Vector3();
+                knockDirection.subVectors(enemy.position, mountainPos);
+                knockDirection.normalize();
+                knockDirection.multiplyScalar(2);
+                enemy.position.add(knockDirection);
+                
+                console.log(`🏔️ Mountain ${i} hit enemy for 60 damage at distance ${distanceToMountain.toFixed(2)}`);
+                
+                if (enemy.health <= 0) {
+                    handleEnemyDeath(enemy, index);
+                }
             }
-        }
-        
-        // Knockback
-        const direction = new THREE.Vector3();
-        direction.subVectors(nearestEnemy.position, player.position);
-        direction.normalize();
-        direction.multiplyScalar(3);
-        nearestEnemy.position.add(direction);
+        });
     }
     
-    // Create shield effect around player
-    const shieldGeometry = new THREE.RingGeometry(2, 3, 16);
-    const shieldMaterial = new THREE.MeshBasicMaterial({ 
-        color: 0x8b4513, 
-        transparent: true, 
-        opacity: 0.7 
-    });
-    const shield = new THREE.Mesh(shieldGeometry, shieldMaterial);
-    shield.position.copy(player.position);
-    shield.position.y = 0.1;
-    shield.rotation.x = -Math.PI / 2;
-    scene.add(shield);
+    // Create ground crack effect along the line
+    createMountainLineEffect(player.position, direction, mountainRange);
     
-    animateEffect(shield, 1.5);
+    // Camera shake for mountain creation
+    if (cameraSystem) {
+        cameraSystem.shake(0.8, 1500);
+    }
+    
+    console.log(`🏔️ Mountain line created! Hit ${hitCount} enemies`);
+}
+
+function createMountain(position, mountainIndex) {
+    // Create mountain base (wider at bottom)
+    const baseGeometry = new THREE.ConeGeometry(1.5, 3, 8);
+    const baseMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0x654321, // Brown mountain color
+        transparent: false
+    });
+    
+    const mountainBase = new THREE.Mesh(baseGeometry, baseMaterial);
+    mountainBase.position.copy(position);
+    mountainBase.position.y = 1.5; // Half height above ground
+    
+    scene.add(mountainBase);
+    
+    // Create mountain peak (smaller, lighter color)
+    const peakGeometry = new THREE.ConeGeometry(0.8, 1.5, 6);
+    const peakMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0x8b7355, // Lighter brown for peak
+        transparent: false
+    });
+    
+    const mountainPeak = new THREE.Mesh(peakGeometry, peakMaterial);
+    mountainPeak.position.copy(position);
+    mountainPeak.position.y = 3.75; // On top of base
+    
+    scene.add(mountainPeak);
+    
+    // Create snow cap (white tip)
+    const snowGeometry = new THREE.ConeGeometry(0.4, 0.8, 6);
+    const snowMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0xffffff, // White snow
+        transparent: false
+    });
+    
+    const snowCap = new THREE.Mesh(snowGeometry, snowMaterial);
+    snowCap.position.copy(position);
+    snowCap.position.y = 4.9; // On top of peak
+    
+    scene.add(snowCap);
+    
+    // Animate mountain rising from ground
+    let mountainTime = 0;
+    const originalBaseY = mountainBase.position.y;
+    const originalPeakY = mountainPeak.position.y;
+    const originalSnowY = snowCap.position.y;
+    
+    // Start mountains underground
+    mountainBase.position.y = -1.5;
+    mountainPeak.position.y = -1.5;
+    snowCap.position.y = -1.5;
+    
+    const animateMountainRise = () => {
+        mountainTime += 16;
+        const progress = Math.min(1, mountainTime / 1000); // 1 second rise
+        
+        // Ease-out animation
+        const easeProgress = 1 - Math.pow(1 - progress, 3);
+        
+        mountainBase.position.y = -1.5 + (originalBaseY + 1.5) * easeProgress;
+        mountainPeak.position.y = -1.5 + (originalPeakY + 1.5) * easeProgress;
+        snowCap.position.y = -1.5 + (originalSnowY + 1.5) * easeProgress;
+        
+        if (progress < 1) {
+            requestAnimationFrame(animateMountainRise);
+        }
+    };
+    
+    animateMountainRise();
+    
+    // Remove mountains after 10 seconds
+    setTimeout(() => {
+        if (mountainBase.parent) scene.remove(mountainBase);
+        if (mountainPeak.parent) scene.remove(mountainPeak);
+        if (snowCap.parent) scene.remove(snowCap);
+    }, 10000);
+}
+
+function createMountainLineEffect(startPos, direction, range) {
+    // Create ground crack effect along the mountain line
+    const crackGeometry = new THREE.PlaneGeometry(range, 0.5);
+    const crackMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0x4a4a4a, // Dark crack color
+        transparent: true, 
+        opacity: 0.8
+    });
+    
+    const groundCrack = new THREE.Mesh(crackGeometry, crackMaterial);
+    groundCrack.position.copy(startPos);
+    groundCrack.position.add(direction.clone().multiplyScalar(range / 2));
+    groundCrack.position.y = 0.01; // Slightly above ground
+    groundCrack.rotation.x = -Math.PI / 2;
+    
+    // Orient crack along the direction
+    const angle = Math.atan2(direction.z, direction.x);
+    groundCrack.rotation.z = angle;
+    
+    scene.add(groundCrack);
+    
+    // Create dust particles along the line
+    for (let i = 0; i < 10; i++) {
+        const dustPos = startPos.clone();
+        dustPos.add(direction.clone().multiplyScalar(Math.random() * range));
+        createDustParticle(dustPos);
+    }
+    
+    // Remove crack after 5 seconds
+    setTimeout(() => {
+        if (groundCrack.parent) scene.remove(groundCrack);
+    }, 5000);
+}
+
+function createDustParticle(position) {
+    const dustGeometry = new THREE.SphereGeometry(0.1, 4, 4);
+    const dustMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0x8b7355, 
+        transparent: true, 
+        opacity: 0.6
+    });
+    
+    const dust = new THREE.Mesh(dustGeometry, dustMaterial);
+    dust.position.copy(position);
+    dust.position.y = 0.2;
+    
+    scene.add(dust);
+    
+    // Animate dust rising and fading
+    let dustTime = 0;
+    const animateDust = () => {
+        dustTime += 16;
+        const progress = dustTime / 2000; // 2 second effect
+        
+        dust.position.y += 0.02; // Rise up
+        dust.material.opacity = Math.max(0, 0.6 - progress * 0.6);
+        
+        // Random drift
+        dust.position.x += (Math.random() - 0.5) * 0.01;
+        dust.position.z += (Math.random() - 0.5) * 0.01;
+        
+        if (progress < 1) {
+            requestAnimationFrame(animateDust);
+        } else {
+            if (dust.parent) scene.remove(dust);
+        }
+    };
+    
+    animateDust();
 }
 
 function shadowAbility() {
-    console.log("Shadow Strike!");
-    // Teleport to nearest enemy and deal massive damage
-    let nearestEnemy = null;
-    let minDistance = Infinity;
+    console.log("🌑 Shadow Form Transformation! 🌑");
     
-    enemies.forEach(enemy => {
-        const distance = player.position.distanceTo(enemy.position);
-        if (distance < minDistance) {
-            minDistance = distance;
-            nearestEnemy = enemy;
+    // Check if already in shadow form
+    if (player.userData.shadowForm) {
+        console.log("Already in shadow form!");
+        return;
+    }
+    
+    // Activate shadow form
+    player.userData.shadowForm = true;
+    player.userData.shadowFormTime = 2500; // 4 seconds
+    player.userData.invincible = true; // Invulnerable while in shadow form
+    
+    console.log("🌑 Player transformed into shadow form");
+    
+    // Transform player appearance to flat shadow
+    transformToShadowForm();
+    
+    // Create shadow transformation effect
+    createShadowTransformationEffect();
+    
+    // Set timer to end shadow form
+    setTimeout(() => {
+        if (player.userData.shadowForm) {
+            endShadowForm();
         }
+    }, 2500);
+}
+
+function transformToShadowForm() {
+    // Store original player properties
+    if (!player.userData.originalMaterial) {
+        player.userData.originalMaterial = player.material.clone();
+        player.userData.originalScale = player.scale.clone();
+    }
+    
+    // Change player to flat shadow appearance
+    player.material.color.setHex(0x000000); // Pure black
+    player.material.transparent = true;
+    player.material.opacity = 0.7; // Semi-transparent
+    
+    // Flatten the player (make them look like a shadow)
+    player.scale.y = 0.1; // Very flat
+    player.position.y = 0.05; // Lower to ground level
+    
+    console.log("🌑 Player appearance transformed to flat shadow");
+}
+
+function endShadowForm() {
+    if (!player.userData.shadowForm) return;
+    
+    console.log("🌑 Shadow form ending - returning to normal");
+    
+    // Restore original appearance
+    if (player.userData.originalMaterial) {
+        player.material.color.copy(player.userData.originalMaterial.color);
+        player.material.transparent = player.userData.originalMaterial.transparent;
+        player.material.opacity = player.userData.originalMaterial.opacity;
+    }
+    
+    if (player.userData.originalScale) {
+        player.scale.copy(player.userData.originalScale);
+    }
+    
+    // Restore normal position
+    player.position.y = 0.5;
+    
+    // End shadow form state
+    player.userData.shadowForm = false;
+    player.userData.shadowFormTime = 0;
+    player.userData.invincible = false;
+    
+    // Create transformation back effect
+    createShadowReturnEffect();
+    
+    console.log("🌑 Player returned to normal form");
+}
+
+function createShadowTransformationEffect() {
+    // Create expanding dark ring effect
+    const transformGeometry = new THREE.RingGeometry(0.2, 3, 16);
+    const transformMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0x000000, 
+        transparent: true, 
+        opacity: 0.8,
+        side: THREE.DoubleSide
     });
     
-    if (nearestEnemy) {
-        // Teleport player
-        player.position.copy(nearestEnemy.position);
-        player.position.x += 1.5;
+    const transformEffect = new THREE.Mesh(transformGeometry, transformMaterial);
+    transformEffect.position.copy(player.position);
+    transformEffect.position.y = 0.01;
+    transformEffect.rotation.x = -Math.PI / 2;
+    
+    scene.add(transformEffect);
+    
+    // Create shadow particles
+    for (let i = 0; i < 12; i++) {
+        const angle = (i / 12) * Math.PI * 2;
+        const particlePos = player.position.clone();
+        particlePos.x += Math.cos(angle) * 2;
+        particlePos.z += Math.sin(angle) * 2;
         
-        // Deal damage
-        nearestEnemy.health -= 100;
-        
-        // Record enemy hit for stamina decay system
-        recordEnemyHit();
-        
-        if (nearestEnemy.health <= 0) {
-            const index = enemies.indexOf(nearestEnemy);
-            if (index !== -1) {
-                handleEnemyDeath(nearestEnemy, index);
-            }
-        }
-        
-        // Create shadow effect
-        const shadowGeometry = new THREE.RingGeometry(0.5, 2, 8);
-        const shadowMaterial = new THREE.MeshBasicMaterial({ 
-            color: 0x000000, 
-            transparent: true, 
-            opacity: 0.8 
-        });
-        const shadow = new THREE.Mesh(shadowGeometry, shadowMaterial);
-        shadow.position.copy(player.position);
-        shadow.position.y = 0.1;
-        shadow.rotation.x = -Math.PI / 2;
-        scene.add(shadow);
-        
-        animateEffect(shadow, 1);
+        createShadowParticle(particlePos);
     }
+    
+    // Animate transformation effect
+    let effectTime = 0;
+    const animateTransform = () => {
+        effectTime += 16;
+        const progress = effectTime / 1000; // 1 second effect
+        
+        // Expand and fade
+        const scale = 1 + progress * 2;
+        transformEffect.scale.set(scale, scale, 1);
+        transformEffect.material.opacity = Math.max(0, 0.8 - progress * 0.8);
+        transformEffect.rotation.z += 0.05;
+        
+        if (progress < 1) {
+            requestAnimationFrame(animateTransform);
+        } else {
+            if (transformEffect.parent) scene.remove(transformEffect);
+        }
+    };
+    
+    animateTransform();
+}
+
+function createShadowReturnEffect() {
+    // Create implosion effect when returning to normal
+    const returnGeometry = new THREE.RingGeometry(2, 0.2, 16);
+    const returnMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0x444444, 
+        transparent: true, 
+        opacity: 0.9,
+        side: THREE.DoubleSide
+    });
+    
+    const returnEffect = new THREE.Mesh(returnGeometry, returnMaterial);
+    returnEffect.position.copy(player.position);
+    returnEffect.position.y = 0.01;
+    returnEffect.rotation.x = -Math.PI / 2;
+    
+    scene.add(returnEffect);
+    
+    // Animate return effect (implosion)
+    let effectTime = 0;
+    const animateReturn = () => {
+        effectTime += 16;
+        const progress = effectTime / 800; // 0.8 second effect
+        
+        // Shrink and fade
+        const scale = 2 - progress * 1.8; // Shrink from 2 to 0.2
+        returnEffect.scale.set(scale, scale, 1);
+        returnEffect.material.opacity = Math.max(0, 0.9 - progress * 0.9);
+        returnEffect.rotation.z -= 0.08;
+        
+        if (progress < 1) {
+            requestAnimationFrame(animateReturn);
+        } else {
+            if (returnEffect.parent) scene.remove(returnEffect);
+        }
+    };
+    
+    animateReturn();
+}
+
+function createShadowParticle(position) {
+    const particleGeometry = new THREE.SphereGeometry(0.1, 6, 6);
+    const particleMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0x222222, 
+        transparent: true, 
+        opacity: 0.8
+    });
+    
+    const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+    particle.position.copy(position);
+    particle.position.y = 0.3;
+    
+    scene.add(particle);
+    
+    // Animate particle moving toward player
+    let particleTime = 0;
+    const animateParticle = () => {
+        particleTime += 16;
+        const progress = particleTime / 800; // 0.8 second effect
+        
+        // Move toward player center
+        const direction = new THREE.Vector3();
+        direction.subVectors(player.position, particle.position);
+        direction.multiplyScalar(0.05);
+        particle.position.add(direction);
+        
+        // Fade out
+        particle.material.opacity = Math.max(0, 0.8 - progress * 0.8);
+        
+        if (progress < 1 && particle.position.distanceTo(player.position) > 0.5) {
+            requestAnimationFrame(animateParticle);
+        } else {
+            if (particle.parent) scene.remove(particle);
+        }
+    };
+    
+    animateParticle();
 }
 
 function dodgeRoll() {
@@ -4217,6 +4725,12 @@ function updateMiniBossAI(miniBoss) {
 function useMiniBossSkill1(miniBoss) {
     console.log("🔥 Mini Boss Skill 1: Fire Wave! 🔥");
     
+    // 🏠 HOME DIMENSION PROTECTION - No mini boss attacks in home
+    if (currentDimension === 'home') {
+        console.log("🏠 Mini boss skill blocked - player is safe in home dimension!");
+        return;
+    }
+    
     // Create expanding fire wave
     const waveGeometry = new THREE.RingGeometry(1, 8, 24);
     const waveMaterial = new THREE.MeshBasicMaterial({ 
@@ -4284,6 +4798,12 @@ function useMiniBossSkill1(miniBoss) {
 function useMiniBossSkill2(miniBoss) {
     console.log("⚡ Mini Boss Skill 2: Lightning Barrage! ⚡");
     
+    // 🏠 HOME DIMENSION PROTECTION - No mini boss attacks in home
+    if (currentDimension === 'home') {
+        console.log("🏠 Mini boss skill blocked - player is safe in home dimension!");
+        return;
+    }
+    
     // Create multiple lightning strikes around player
     for (let i = 0; i < 5; i++) {
         setTimeout(() => {
@@ -4338,6 +4858,12 @@ function useMiniBossSkill2(miniBoss) {
 
 function enemyAttack(enemy) {
     console.log(`Enemy ${enemy.type} attempting attack. Distance to player: ${enemy.position.distanceTo(player.position).toFixed(2)}`);
+    
+    // 🏠 HOME DIMENSION PROTECTION - No enemy attacks can damage player in home
+    if (currentDimension === 'home') {
+        console.log("🏠 Player is safe in home dimension - enemy attack blocked!");
+        return; // No damage in peaceful home dimension
+    }
     
     if (isDodging) {
         console.log("Player dodged enemy attack!");
@@ -5044,3 +5570,37 @@ function animate() {
 
 // Start the app when page loads
 window.addEventListener('load', initializeApp);
+
+// Debug function to test buttons (can be called from console)
+window.testButtons = function() {
+    console.log("=== BUTTON TEST ===");
+    
+    const buttons = [
+        'playButton',
+        'settingsButton', 
+        'quitButton',
+        'backToMenuButton',
+        'muteButton',
+        'respawnButton',
+        'returnToMenuButton',
+        'introSkip'
+    ];
+    
+    buttons.forEach(buttonId => {
+        const button = document.getElementById(buttonId);
+        if (button) {
+            console.log(`✅ ${buttonId}: Found`);
+            // Test click
+            try {
+                button.click();
+                console.log(`✅ ${buttonId}: Click works`);
+            } catch (error) {
+                console.log(`❌ ${buttonId}: Click error:`, error);
+            }
+        } else {
+            console.log(`❌ ${buttonId}: NOT FOUND`);
+        }
+    });
+    
+    console.log("=== END BUTTON TEST ===");
+};

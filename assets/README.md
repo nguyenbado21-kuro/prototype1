@@ -9,6 +9,9 @@ Contains all audio files for the game:
 - `home-music.mp3` - Peaceful background music for home dimension
 - `war-music.mp3` - Intense battle music for war dimension
 
+### 🎵 **Menu Music** (Root Directory)
+- `Bốn Vị Bất Tử.mp3` - Vietnamese menu music ("The Four Immortals") - plays during intro, main menu, and settings
+
 ### 🖼️ `/images/`
 Contains background images and UI graphics:
 - `home-background.png` - Background image for home dimension skybox
