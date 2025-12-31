@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Four Immortals - Prototype</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #000;
+            font-family: Arial, sans-serif;
+        }
+        
+        #gameContainer {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            z-index: 100;
+        }
+        
+        #instructions {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            color: white;
+            z-index: 100;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <div id="ui">
+            <div>Health: <span id="health">100</span></div>
+            <div>Immortal: <span id="currentImmortal">Flame</span></div>
+            <div>Ability: <span id="abilityStatus">Ready</span></div>
+            <div>Audio: <span id="audioStatus">Click to enable</span></div>
+        </div>
+        <div id="instructions">
+            WASD: Move | Left Click: Attack | Right Click: Special Ability<br>
+            1-4: Switch Immortals | Space: Dodge Roll | Mouse Wheel: Zoom Camera<br>
+            H: Return Home | M: Mute/Unmute | +/-: Volume Control
+        </div>
+        <div id="immortalSelect" style="position: absolute; top: 10px; right: 10px; color: white;">
+            <div>Select Immortal:</div>
+            <div>1 - Flame (Melee/Fire)</div>
+            <div>2 - Storm (Ranged/Lightning)</div>
+            <div>3 - Earth (Tank/Shield)</div>
+            <div>4 - Shadow (Stealth/Poison)</div>
+        </div>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>
