@@ -1,3 +1,8 @@
+﻿import * as THREE from 'three';
+
+// Global initialization flag
+window.gameInitialized = false;
+
 // Game variables
 let scene, camera, renderer, player, enemies = [];
 let cameraSystem; // New camera system
@@ -539,6 +544,9 @@ function returnToMenuFromDeath() {
 // Initialize the menu system when page loads
 function initializeApp() {
     console.log("Initializing application...");
+    
+    // Mark as initialized
+    window.gameInitialized = true;
     
     // Wait for DOM to be fully loaded
     if (document.readyState === 'loading') {
@@ -5535,7 +5543,35 @@ function animate() {
 }
 
 // Start the app when page loads
-window.addEventListener('load', initializeApp);
+window.addEventListener('load', () => {
+    console.log("Window loaded, checking Three.js...");
+    
+    if (typeof THREE === 'undefined') {
+        console.error("THREE.js is not loaded!");
+        alert("Game failed to load: THREE.js library missing");
+        return;
+    }
+    
+    console.log("THREE.js loaded successfully, initializing app...");
+    initializeApp();
+});
+
+// Also try DOMContentLoaded as backup
+document.addEventListener('DOMContentLoaded', () => {
+    console.log("DOM loaded, setting up fallback initialization...");
+    
+    // If the game hasn't started after 2 seconds, try again
+    setTimeout(() => {
+        if (!window.gameInitialized) {
+            console.log("Game not initialized yet, trying fallback...");
+            if (typeof THREE !== 'undefined') {
+                initializeApp();
+            } else {
+                console.error("THREE.js still not available");
+            }
+        }
+    }, 2000);
+});
 
 // Debug function to test buttons (can be called from console)
 window.testButtons = function() {

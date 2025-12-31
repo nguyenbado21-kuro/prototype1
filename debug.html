@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Game</title>
+    <style>
+        body { margin: 0; padding: 20px; background: #000; color: white; font-family: Arial; }
+        .scene { display: none; padding: 50px; text-align: center; }
+        .scene.active { display: block; }
+        button { padding: 15px 30px; font-size: 18px; margin: 10px; cursor: pointer; }
+        #console { background: #222; padding: 20px; margin: 20px 0; height: 200px; overflow-y: scroll; }
+    </style>
+</head>
+<body>
+    <div id="console"></div>
+    
+    <div id="intro" class="scene active">
+        <h1>The Four Immortals - Debug Version</h1>
+        <p>Testing basic functionality...</p>
+        <button onclick="skipIntro()">Skip to Menu</button>
+    </div>
+    
+    <div id="menu" class="scene">
+        <h1>Main Menu</h1>
+        <button onclick="startGame()">Start Game</button>
+        <button onclick="showIntro()">Back to Intro</button>
+    </div>
+    
+    <div id="game" class="scene">
+        <h1>Game Started!</h1>
+        <p>Game would run here...</p>
+        <button onclick="showMenu()">Back to Menu</button>
+    </div>
+
+    <script>
+        function log(message) {
+            const console = document.getElementById('console');
+            console.innerHTML += new Date().toLocaleTimeString() + ': ' + message + '<br>';
+            console.scrollTop = console.scrollHeight;
+            console.log(message);
+        }
+        
+        function showScene(sceneId) {
+            document.querySelectorAll('.scene').forEach(s => s.classList.remove('active'));
+            document.getElementById(sceneId).classList.add('active');
+            log('Switched to scene: ' + sceneId);
+        }
+        
+        function skipIntro() {
+            log('Skip intro clicked');
+            showScene('menu');
+        }
+        
+        function startGame() {
+            log('Start game clicked');
+            showScene('game');
+        }
+        
+        function showMenu() {
+            log('Show menu clicked');
+            showScene('menu');
+        }
+        
+        function showIntro() {
+            log('Show intro clicked');
+            showScene('intro');
+        }
+        
+        // Test initialization
+        document.addEventListener('DOMContentLoaded', () => {
+            log('DOM Content Loaded');
+        });
+        
+        window.addEventListener('load', () => {
+            log('Window Load Event');
+        });
+        
+        log('Script loaded and running');
+    </script>
+</body>
+</html>
